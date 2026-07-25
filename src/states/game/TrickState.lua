@@ -8,6 +8,12 @@ local HUMAN_PLAYED_Y = 92
 local HUMAN_HAND_Y   = 146
 local HUMAN_HAND_RAISE = 12  -- how far the highlighted/hovered card lifts
 
+-- envido/truco call buttons, right-side column
+local BTN_W, BTN_H, BTN_GAP = 92, 16, 4
+local BTN_X = VIRTUAL_WIDTH - BTN_W - 6
+local BTN_Y0 = 60
+local CALL_LABEL = { envido = 'Envido', real = 'Real envido', falta = 'Falta envido' }
+
 local function handYFor(side)   return side == 'ai' and AI_HAND_Y or HUMAN_HAND_Y end
 local function playedYFor(side) return side == 'ai' and AI_PLAYED_Y or HUMAN_PLAYED_Y end
 
@@ -20,6 +26,10 @@ function TrickState:init(loop)
     self.leader = loop.mano  -- mano leads the first trick
     self.tricksPlayed = 0
     self.mouseWasDown = false  -- for left-click edge detection
+    self.envidoUsed = false    -- an envido negotiation has already happened this hand
+    self.canto = nil           -- active call negotiation, or nil
+    self.envidoBanner = nil     -- brief post-envido result text
+    self.hoveredButton = nil
     self:startTrick()
 end
 
@@ -109,8 +119,8 @@ function TrickState:resolve()
 end
 
 function TrickState:update(dt)
-    -- left-click edge detection (consumed by the human picker below); tracked
-    -- every frame so a click can't carry across the resolve pause
+    -- left-click edge detection (consumed by the pickers below); tracked every
+    -- frame so a click can't carry across a pause
     local mouseDown = love.mouse.isDown(1)
     local clicked = mouseDown and not self.mouseWasDown
     self.mouseWasDown = mouseDown
@@ -120,22 +130,145 @@ function TrickState:update(dt)
     -- accept no more input until the trick resolves and startTrick() resets
     if self.playCount >= 2 then return end
 
-    if self.currentPlayer == 'ai' then
-        -- brief "thinking" beat so the AI's play doesn't land on the same frame
-        -- as the human's; schedule it once and let the timer fire it
-        if not self.aiThinking then
-            self.aiThinking = true
-            Timer.after(0.6, function()
-                self.aiThinking = false
-                if self.currentPlayer == 'ai' and not self.resolving then
-                    -- decision lives in AiStub so PRD 6 can swap it without touching this state
-                    self:playCard('ai', AiStub.chooseCard(self.loop.aiHand), self.loop.aiHand)
-                end
-            end)
+    -- an active envido negotiation takes over input until it resolves (its
+    -- banner then lingers briefly before card play resumes)
+    if self.canto then
+        if self.canto.resolved then return end
+        if self.canto.responder == 'human' then
+            self:updateCallButtons(clicked)
+        else
+            self:aiRespondCanto()
         end
+        return
+    end
+
+    if self.currentPlayer == 'ai' then
+        self:updateAiTurn()
     else
+        -- the human may open envido (buttons) or just play a card to skip it
+        if self:updateCallButtons(clicked) then return end
         self:updateHumanSelection(clicked)
     end
+end
+
+-- Envido is callable only in the first trick, before this side plays its card,
+-- and only once per hand (mano first; the pie can still call after mano's card).
+function TrickState:canCallEnvido()
+    return self.tricksPlayed == 0 and not self.envidoUsed
+end
+
+-- The right-side call buttons for this frame: envido opens (human's eligible
+-- turn) or the responses to a live call, else none. Positions set here so
+-- render and input agree on hit boxes.
+function TrickState:callButtons()
+    local list
+    if self.canto and not self.canto.resolved and self.canto.responder == 'human' then
+        list = { { label = 'Quiero', act = 'accept' }, { label = 'No quiero', act = 'reject' } }
+        for _, c in ipairs(self.canto:availableRaises()) do
+            list[#list + 1] = { label = CALL_LABEL[c], act = 'call:' .. c }
+        end
+    elseif not self.canto and self.currentPlayer == 'human'
+           and self.playCount < 2 and self:canCallEnvido() then
+        list = {
+            { label = 'Envido', act = 'call:envido' },
+            { label = 'Real envido', act = 'call:real' },
+            { label = 'Falta envido', act = 'call:falta' },
+        }
+    else
+        return {}
+    end
+    for i, b in ipairs(list) do
+        b.key = tostring(i)
+        b.x, b.y, b.w, b.h = BTN_X, BTN_Y0 + (i - 1) * (BTN_H + BTN_GAP), BTN_W, BTN_H
+    end
+    return list
+end
+
+function TrickState:updateCallButtons(clicked)
+    self.hoveredButton = nil
+    local mx, my = push.toGame(love.mouse.getPosition())
+    for _, b in ipairs(self:callButtons()) do
+        if mx and my and pointInRect(mx, my, b.x, b.y, b.w, b.h) then
+            self.hoveredButton = b
+        end
+        if love.keyboard.wasPressed(b.key) or (self.hoveredButton == b and clicked) then
+            self:applyCallButton(b.act)
+            return true
+        end
+    end
+    return false
+end
+
+function TrickState:applyCallButton(act)
+    if act == 'accept' then
+        self.canto:accept(); self:finishCanto()
+    elseif act == 'reject' then
+        self.canto:reject(); self:finishCanto()
+    else
+        local callType = act:match('call:(%a+)')
+        if self.canto then
+            self.canto:raise(callType)  -- human responder raises; the AI now answers
+            self.aiThinking = false
+        else
+            self:openCanto('human', callType)
+        end
+    end
+end
+
+function TrickState:openCanto(opener, callType)
+    self.envidoUsed = true
+    self.canto = Canto(ENVIDO_CANTO, opener, callType)
+    self.aiThinking = false  -- let the responder's think re-arm
+end
+
+function TrickState:aiRespondCanto()
+    if self.aiThinking then return end
+    self.aiThinking = true
+    Timer.after(0.6, function()
+        self.aiThinking = false
+        if not self.canto or self.canto.resolved then return end
+        -- stub never raises: quiero / no quiero only
+        if EnvidoAiStub.chooseResponse(self.loop.aiHand) == 'quiero' then
+            self.canto:accept()
+        else
+            self.canto:reject()
+        end
+        self:finishCanto()
+    end)
+end
+
+-- AI's turn with no live call: decide envido first (when eligible), else play.
+function TrickState:updateAiTurn()
+    if self.aiThinking then return end
+    self.aiThinking = true
+    Timer.after(0.6, function()
+        self.aiThinking = false
+        if self.currentPlayer ~= 'ai' or self.resolving or self.canto then return end
+        if self:canCallEnvido() and EnvidoAiStub.chooseOpen(self.loop.aiHand) == 'envido' then
+            self:openCanto('ai', 'envido')
+        else
+            -- decision lives in AiStub so PRD 6 can swap it without touching this state
+            self:playCard('ai', AiStub.chooseCard(self.loop.aiHand), self.loop.aiHand)
+        end
+    end)
+end
+
+-- Apply the resolved envido points immediately, show a banner, then resume the
+-- interrupted card play (currentPlayer is unchanged -- the opener still plays).
+function TrickState:finishCanto()
+    local side, points = envidoAward(self.canto.outcome, self.mano,
+        self.loop.humanHand, self.loop.aiHand, self.loop.humanScore, self.loop.aiScore)
+    if side == 'human' then
+        self.loop.humanScore = self.loop.humanScore + points
+    else
+        self.loop.aiScore = self.loop.aiScore + points
+    end
+    self.aiThinking = false
+    self.envidoBanner = (side == 'human' and 'You' or 'AI') .. ' win the envido  (+' .. points .. ')'
+    Timer.after(1.5, function()
+        self.canto = nil
+        self.envidoBanner = nil
+    end)
 end
 
 -- Pick a card two ways. Mouse: entering a card lifts it, leaving a card it was
@@ -204,9 +337,10 @@ function TrickState:render()
         end
     end
 
-    -- human hand, face-up; on the human's turn the active card lifts (the lift
-    -- is the only cue -- no highlight ring)
-    local myTurn = self.currentPlayer == 'human' and not self.resolving and self.playCount < 2
+    -- human hand, face-up; on the human's turn (and no live call) the active
+    -- card lifts (the lift is the only cue -- no highlight ring)
+    local myTurn = self.currentPlayer == 'human' and not self.resolving
+        and self.playCount < 2 and not self.canto
     love.graphics.setColor(1, 1, 1, 1)
     for i = 1, #loop.humanHand do
         local x = cardRowX(i, #loop.humanHand)
@@ -214,11 +348,26 @@ function TrickState:render()
         drawCardFront(loop.humanHand[i], x, y)
     end
 
+    -- call buttons (envido open / call responses) + the brief envido banner
+    for _, b in ipairs(self:callButtons()) do
+        drawButton('[' .. b.key .. '] ' .. b.label, b.x, b.y, b.w, b.h, self.hoveredButton == b)
+    end
+    if self.envidoBanner then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setFont(gFonts['small'])
+        love.graphics.printf(self.envidoBanner, 0, 66, VIRTUAL_WIDTH, 'center')
+    end
+
     local status
-    if self.resolving then
+    if self.envidoBanner then
+        status = nil
+    elseif self.canto then
+        status = self.canto.responder == 'human' and 'Envido: respond' or 'AI is thinking...'
+    elseif self.resolving then
         status = self.resultText
     elseif self.currentPlayer == 'human' then
-        status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - your turn: arrows + Enter, or click'
+        status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - play a card'
+            .. (self:canCallEnvido() and '  (or call envido)' or '')
     else
         status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - AI is thinking...'
     end
