@@ -6,6 +6,7 @@ local AI_HAND_Y      = 8
 local AI_PLAYED_Y    = 60
 local HUMAN_PLAYED_Y = 92
 local HUMAN_HAND_Y   = 146
+local HUMAN_HAND_RAISE = 12  -- how far the highlighted/hovered card lifts
 
 local function handYFor(side)   return side == 'ai' and AI_HAND_Y or HUMAN_HAND_Y end
 local function playedYFor(side) return side == 'ai' and AI_PLAYED_Y or HUMAN_PLAYED_Y end
@@ -18,6 +19,7 @@ function TrickState:init(loop)
     self.mano = loop.mano
     self.leader = loop.mano  -- mano leads the first trick
     self.tricksPlayed = 0
+    self.mouseWasDown = false  -- for left-click edge detection
     self:startTrick()
 end
 
@@ -28,6 +30,8 @@ function TrickState:startTrick()
     self.playCount = 0
     self.resolving = false            -- true during the between-trick pause
     self.aiThinking = false           -- true while the AI's move is on its timer
+    self.raised = nil                 -- lifted human card index, or nil for none
+    self.prevHovered = nil            -- last frame's hovered card, for enter/exit edges
     self.resultText = nil
 end
 
@@ -105,6 +109,12 @@ function TrickState:resolve()
 end
 
 function TrickState:update(dt)
+    -- left-click edge detection (consumed by the human picker below); tracked
+    -- every frame so a click can't carry across the resolve pause
+    local mouseDown = love.mouse.isDown(1)
+    local clicked = mouseDown and not self.mouseWasDown
+    self.mouseWasDown = mouseDown
+
     if self.resolving then return end
     -- both cards are down but resolve() is still waiting on the landing tweens;
     -- accept no more input until the trick resolves and startTrick() resets
@@ -124,13 +134,56 @@ function TrickState:update(dt)
             end)
         end
     else
-        for i = 1, #self.loop.humanHand do
-            if love.keyboard.wasPressed(tostring(i)) then
-                self:playCard('human', self.loop.humanHand[i], self.loop.humanHand)
-                break
-            end
+        self:updateHumanSelection(clicked)
+    end
+end
+
+-- Pick a card two ways. Mouse: entering a card lifts it, leaving a card it was
+-- over lowers it -- but drifting through empty space leaves a keyboard-lifted
+-- card alone. Arrows: lift the first card if none is up, else move the lift.
+-- Enter plays the lifted card; a click plays the card under the mouse.
+function TrickState:updateHumanSelection(clicked)
+    local hand = self.loop.humanHand
+    local n = #hand
+    if self.raised then self.raised = math.max(1, math.min(self.raised, n)) end
+
+    local hovered = self:cardAtMouse()
+    if hovered then
+        self.raised = hovered            -- over a card -> that card is up
+    elseif self.prevHovered then
+        self.raised = nil                -- just left a card -> put it down
+    end                                  -- empty->empty: leave the lift as-is
+    self.prevHovered = hovered
+
+    if love.keyboard.wasPressed('left') then
+        self.raised = self.raised and math.max(1, self.raised - 1) or 1
+    elseif love.keyboard.wasPressed('right') then
+        self.raised = self.raised and math.min(n, self.raised + 1) or 1
+    end
+
+    if love.keyboard.wasPressed('return') and self.raised then
+        self:playCard('human', hand[self.raised], hand)
+    elseif hovered and clicked then
+        self:playCard('human', hand[hovered], hand)
+    end
+end
+
+-- Human-hand card index under the mouse, or nil. Hit region spans the raised
+-- and resting Y so the lifted card stays clickable. push.toGame converts the
+-- window pointer to virtual coords (false when outside the game area).
+function TrickState:cardAtMouse()
+    local mx, my = push.toGame(love.mouse.getPosition())
+    if not mx or not my then return nil end
+    local n = #self.loop.humanHand
+    local yTop = HUMAN_HAND_Y - HUMAN_HAND_RAISE
+    local yBot = HUMAN_HAND_Y + CARD_H
+    for i = 1, n do
+        local x = cardRowX(i, n)
+        if mx >= x and mx <= x + CARD_W and my >= yTop and my <= yBot then
+            return i
         end
     end
+    return nil
 end
 
 function TrickState:render()
@@ -151,20 +204,21 @@ function TrickState:render()
         end
     end
 
-    -- human hand, face-up, numbered
+    -- human hand, face-up; on the human's turn the active card lifts (the lift
+    -- is the only cue -- no highlight ring)
+    local myTurn = self.currentPlayer == 'human' and not self.resolving and self.playCount < 2
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(gFonts['small'])
     for i = 1, #loop.humanHand do
         local x = cardRowX(i, #loop.humanHand)
-        drawCardFront(loop.humanHand[i], x, HUMAN_HAND_Y)
-        love.graphics.printf(tostring(i), x, HUMAN_HAND_Y + CARD_H + 1, CARD_W, 'center')
+        local y = (myTurn and i == self.raised) and (HUMAN_HAND_Y - HUMAN_HAND_RAISE) or HUMAN_HAND_Y
+        drawCardFront(loop.humanHand[i], x, y)
     end
 
     local status
     if self.resolving then
         status = self.resultText
     elseif self.currentPlayer == 'human' then
-        status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - your turn: press 1-' .. #loop.humanHand
+        status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - your turn: arrows + Enter, or click'
     else
         status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - AI is thinking...'
     end
