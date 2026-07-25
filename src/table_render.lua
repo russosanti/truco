@@ -34,6 +34,21 @@ function cardRowX(index, count)
     return startX + (index - 1) * (CARD_W + CARD_GAP)
 end
 
+-- Is (px,py) inside the rect? Shared by the click-driven call UIs.
+function pointInRect(px, py, x, y, w, h)
+    return px >= x and px <= x + w and py >= y and py <= y + h
+end
+
+-- A labeled button; brighter fill when hovered. Generic, reused by call UIs.
+function drawButton(label, x, y, w, h, hovered)
+    love.graphics.setColor(hovered and 0.30 or 0.16, hovered and 0.42 or 0.26, hovered and 0.30 or 0.20, 1)
+    love.graphics.rectangle('fill', x, y, w, h, 3, 3)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.rectangle('line', x, y, w, h, 3, 3)
+    love.graphics.setFont(gFonts['small'])
+    love.graphics.printf(label, x, y + h / 2 - 4, w, 'center')
+end
+
 -- Shared HUD: score, this hand's mano, and a per-phase status line.
 function drawHud(loop, status)
     love.graphics.setFont(gFonts['small'])

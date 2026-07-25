@@ -38,9 +38,16 @@ require 'src.trick_rules'
 require 'src.AiStub'
 require 'src.table_render'
 
+-- PRD 3: envido. Pure valuation math + the family-agnostic call engine and its
+-- envido binding + a throwaway decision stub. Envido runs inside the first
+-- trick (TrickState hosts the call window), so there's no CantosState anymore.
+require 'src.envido_rules'
+require 'src.canto'
+require 'src.envido_canto'
+require 'src.EnvidoAiStub'
+
 require 'src.states.game.HandLoopState'
 require 'src.states.game.DealState'
-require 'src.states.game.CantosState'
 require 'src.states.game.TrickState'
 require 'src.states.game.HandScoreState'
 

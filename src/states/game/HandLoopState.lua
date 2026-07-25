@@ -16,11 +16,12 @@ function HandLoopState:init()
     self.aiHand = {}
     self.mano = nil  -- set by DealState each hand (whoever isn't the dealer)
 
+    -- envido now lives inside the first trick (PRD 3), so there's no separate
+    -- cantos phase -- deal hands straight to trick
     self.machine = StateMachine {
-        ['deal']   = function() return DealState(self) end,
-        ['cantos'] = function() return CantosState(self) end,
-        ['trick']  = function() return TrickState(self) end,
-        ['score']  = function() return HandScoreState(self) end,
+        ['deal']  = function() return DealState(self) end,
+        ['trick'] = function() return TrickState(self) end,
+        ['score'] = function() return HandScoreState(self) end,
     }
     self.machine:change('deal')
 end

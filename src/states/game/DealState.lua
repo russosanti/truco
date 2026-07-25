@@ -15,7 +15,7 @@ function DealState:enter()
     -- mano is whoever is NOT dealing this hand; leads the first trick
     loop.mano = loop.dealer == 'human' and 'ai' or 'human'
 
-    Timer.after(0.5, function() loop.machine:change('cantos') end)
+    Timer.after(0.5, function() loop.machine:change('trick') end)
 end
 
 function DealState:render()
