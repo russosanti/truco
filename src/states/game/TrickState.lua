@@ -7,7 +7,8 @@ local AI_PLAYED_Y    = 60
 local HUMAN_PLAYED_Y = 92
 local HUMAN_HAND_Y   = 146
 local HUMAN_HAND_RAISE = 12  -- how far the highlighted/hovered card lifts
-local AI_MSG_Y = 66          -- "AI: ..." message box, tucked up under the AI's cards
+local STACK_DX, STACK_DY = 12, 12         -- per-card offset so a side's played cards fan out
+local SIDE_MSG_Y = { ai = 66, human = 112 }  -- dialog box Y per side (AI up, human down)
 
 -- envido/truco call buttons, right-side column
 local BTN_W, BTN_H, BTN_GAP = 92, 16, 4
@@ -30,9 +31,13 @@ function TrickState:init(loop)
     self.mouseWasDown = false  -- for left-click edge detection
     self.envidoUsed = false    -- an envido negotiation has already happened this hand
     self.canto = nil           -- active envido negotiation, or nil
-    self.aiMessage = nil        -- terse "AI: <call>" announcement, or nil
-    self.aiPanel = nil          -- the gui.Panel backing the current aiMessage
+    self.dialogs = {}          -- list of {text, panel} message boxes on screen
     self.hoveredButton = nil
+    -- every card each side has played this hand, stacked (survives across tricks)
+    self.playedStack = { human = {}, ai = {} }
+    -- envido value snapshot from the full 3-card hands (a card may be on the
+    -- table by the time the pie calls envido, so we can't read it off the hand later)
+    self.envidoValue = { human = envidoValue(loop.humanHand), ai = envidoValue(loop.aiHand) }
     -- truco lives entirely here (one TrickState per hand); HandScoreState is
     -- handed the final point value, so none of this leaks onto loop
     self.trucoLevel = 0        -- accepted value: 0 none, 2 truco, 3 retruco, 4 vale cuatro
@@ -41,17 +46,20 @@ function TrickState:init(loop)
     self:startTrick()
 end
 
--- Announce an AI move in a centered panel (only the AI's moves get a message).
--- Blocks input for 1.5s, then clears and runs the optional continuation.
-function TrickState:showAiMessage(label, afterFn)
-    self.aiMessage = 'AI: ' .. label
+-- A message box positioned on `side` (human low, ai up), sized to its text.
+function TrickState:makeDialog(side, text)
     local font = gFonts['small']
-    local w = font:getWidth(self.aiMessage) + 24
+    local w = font:getWidth(text) + 24
     local h = font:getHeight() + 16
-    self.aiPanel = Panel((VIRTUAL_WIDTH - w) / 2, AI_MSG_Y, w, h)
+    return { text = text, panel = Panel((VIRTUAL_WIDTH - w) / 2, SIDE_MSG_Y[side], w, h) }
+end
+
+-- Announce an AI move (only the AI's moves get a message). Blocks input for
+-- 1.5s while shown, then clears and runs the optional continuation.
+function TrickState:showAiMessage(label, afterFn)
+    self.dialogs = { self:makeDialog('ai', 'AI: ' .. label) }
     Timer.after(1.5, function()
-        self.aiMessage = nil
-        self.aiPanel = nil
+        self.dialogs = {}
         if afterFn then afterFn() end
     end)
 end
@@ -59,7 +67,8 @@ end
 function TrickState:startTrick()
     self.currentPlayer = self.leader  -- leader plays first, other responds
     self.trickCards = {}              -- [side] -> card played this trick
-    self.anims = {}                   -- [side] -> live {card,x,y,rot,done} tween target
+    self.anims = {}                   -- [side] -> live {card,x,y,rot} tween target
+    self.landed = 0                   -- cards that finished their tween this trick
     self.playCount = 0
     self.resolving = false            -- true during the between-trick pause
     self.aiThinking = false           -- true while the AI's move is on its timer
@@ -80,13 +89,19 @@ function TrickState:playCard(side, card, hand)
     table.remove(hand, index)
 
     self.trickCards[side] = card
-    local a = { card = card, x = fromX, y = handYFor(side), rot = 0, done = false }
+    local a = { card = card, x = fromX, y = handYFor(side), rot = 0 }
     self.anims[side] = a
 
-    local toX = cardRowX(side == 'ai' and 1 or 2, 2)  -- same X as before; item 3 is Y-only
-    local tilt = math.rad(math.random(-7, 7))         -- small toss tilt, settles there
-    Timer.tween(0.2, { [a] = { x = toX, y = playedYFor(side), rot = tilt } }):finish(function()
-        a.done = true
+    -- stack: each card lands a step further along than this side's previous ones
+    local idx = #self.playedStack[side]
+    local toX = cardRowX(side == 'ai' and 1 or 2, 2) + STACK_DX * idx
+    local toY = playedYFor(side) + STACK_DY * idx
+    local tilt = math.rad(math.random(-7, 7))  -- small toss tilt, settles there
+    Timer.tween(0.2, { [a] = { x = toX, y = toY, rot = tilt } }):finish(function()
+        -- park the settled card in the stack; drop the anim so it isn't drawn twice
+        table.insert(self.playedStack[side], { card = card, x = toX, y = toY, rot = tilt })
+        self.anims[side] = nil
+        self.landed = self.landed + 1
         self:tryResolve()
     end)
 
@@ -94,14 +109,10 @@ function TrickState:playCard(side, card, hand)
     self.currentPlayer = side == 'human' and 'ai' or 'human'
 end
 
--- Resolve only once both played cards have finished animating, so both are
--- seen landing before the winner is decided.
+-- Resolve once both cards of this trick have landed, so both are seen settling
+-- before the winner is decided.
 function TrickState:tryResolve()
-    if self.playCount < 2 then return end
-    if self.anims.human and self.anims.human.done
-       and self.anims.ai and self.anims.ai.done then
-        self:resolve()
-    end
+    if self.landed >= 2 then self:resolve() end
 end
 
 function TrickState:resolve()
@@ -155,8 +166,8 @@ function TrickState:update(dt)
     -- accept no more input until the trick resolves and startTrick() resets
     if self.playCount >= 2 then return end
 
-    -- an AI announcement is on screen; freeze input until it clears
-    if self.aiMessage then return end
+    -- a message/reveal box is on screen; freeze input until it clears
+    if #self.dialogs > 0 then return end
 
     -- an active envido negotiation takes over input (this also covers the
     -- interrupt's envido phase, with a truco call still pending underneath)
@@ -354,8 +365,8 @@ function TrickState:aiRespondCanto()
         -- stub never raises: quiero / no quiero only
         local resp = EnvidoAiStub.chooseResponse(self.loop.aiHand)
         if resp == 'quiero' then self.canto:accept() else self.canto:reject() end
-        self:finishCanto()
-        self:showAiMessage(resp == 'quiero' and 'Quiero' or 'No quiero')
+        self:finishCanto()  -- accept -> the reveal is the feedback; reject shows a message below
+        if resp == 'noquiero' then self:showAiMessage('No quiero') end
     end)
 end
 
@@ -379,19 +390,48 @@ function TrickState:updateAiTurn()
     end)
 end
 
--- Apply the resolved envido points immediately. The truco pending (if any --
--- the interrupt) is left intact so it's answered afterward. Any "AI: …" message
--- is added by the caller (a human accept/reject is silent).
-function TrickState:finishCanto()
-    local side, points = envidoAward(self.canto.outcome, self.mano,
-        self.loop.humanHand, self.loop.aiHand, self.loop.humanScore, self.loop.aiScore)
+function TrickState:award(side, points)
     if side == 'human' then
         self.loop.humanScore = self.loop.humanScore + points
     else
         self.loop.aiScore = self.loop.aiScore + points
     end
+end
+
+-- Resolve the envido. Accept runs the mano-then-pie reveal showdown, applying
+-- points only after it; reject pays out at once (no showdown, per reglamento).
+-- The truco pending (if any -- the interrupt) is left intact for afterward.
+function TrickState:finishCanto()
+    local outcome = self.canto.outcome
     self.canto = nil
     self.aiThinking = false
+    if outcome.kind == 'accept' then
+        self:revealEnvido(outcome)
+    else
+        local side, points = envidoAward(outcome, self.mano,
+            self.envidoValue[self.mano], self.envidoValue[other(self.mano)],
+            self.loop.humanScore, self.loop.aiScore)
+        self:award(side, points)
+    end
+end
+
+-- Showdown: mano's number, then pie's ("son mejores" if better, else "son
+-- buenas"), each held ~2s; points land after. Input is frozen while dialogs show.
+function TrickState:revealEnvido(outcome)
+    local pie = other(self.mano)
+    local manoVal, pieVal = self.envidoValue[self.mano], self.envidoValue[pie]
+
+    self.dialogs = { self:makeDialog(self.mano, tostring(manoVal)) }
+    Timer.after(2, function()
+        local pieText = pieVal > manoVal and (pieVal .. ' son mejores') or 'son buenas'
+        table.insert(self.dialogs, self:makeDialog(pie, pieText))
+        Timer.after(2, function()
+            self.dialogs = {}
+            local side, points = envidoAward(outcome, self.mano, manoVal, pieVal,
+                self.loop.humanScore, self.loop.aiScore)
+            self:award(side, points)
+        end)
+    end)
 end
 
 -- Pick a card two ways. Mouse: entering a card lifts it, leaving a card it was
@@ -451,19 +491,22 @@ function TrickState:render()
         drawCardBack(cardRowX(i, #loop.aiHand), AI_HAND_Y)
     end
 
-    -- cards played this trick, drawn from their live tween state; owner is
-    -- conveyed by position (AI high, human low) so no labels are needed
+    -- every card played this hand, stacked (oldest first so newer land on top),
+    -- then the still-tweening card on top; owner is read from the base position
     for _, side in ipairs({ 'ai', 'human' }) do
+        for _, e in ipairs(self.playedStack[side]) do
+            drawCardFrontRot(e.card, e.x, e.y, e.rot)
+        end
         local a = self.anims[side]
         if a then
             drawCardFrontRot(a.card, a.x, a.y, a.rot)
         end
     end
 
-    -- human hand, face-up; on the human's turn (and no live call/message) the
+    -- human hand, face-up; on the human's turn (and no live call/dialog) the
     -- active card lifts (the lift is the only cue -- no highlight ring)
     local myTurn = self.currentPlayer == 'human' and not self.resolving
-        and self.playCount < 2 and not self.canto and not self.trucoPending and not self.aiMessage
+        and self.playCount < 2 and not self.canto and not self.trucoPending and #self.dialogs == 0
     love.graphics.setColor(1, 1, 1, 1)
     for i = 1, #loop.humanHand do
         local x = cardRowX(i, #loop.humanHand)
@@ -471,12 +514,14 @@ function TrickState:render()
         drawCardFront(loop.humanHand[i], x, y)
     end
 
-    if self.aiMessage then
-        -- an AI announcement owns the screen; its panel replaces the call buttons
-        self.aiPanel:render()
-        love.graphics.setColor(1, 1, 1, 1)
+    if #self.dialogs > 0 then
+        -- message/reveal boxes own the screen; they replace the call buttons
         love.graphics.setFont(gFonts['small'])
-        love.graphics.printf(self.aiMessage, self.aiPanel.x, self.aiPanel.y + 8, self.aiPanel.width, 'center')
+        for _, d in ipairs(self.dialogs) do
+            d.panel:render()
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.printf(d.text, d.panel.x, d.panel.y + 8, d.panel.width, 'center')
+        end
     else
         for _, b in ipairs(self:callButtons()) do
             drawButton('[' .. b.key .. '] ' .. b.label, b.x, b.y, b.w, b.h, self.hoveredButton == b)
@@ -485,7 +530,7 @@ function TrickState:render()
 
     local stake = self.trucoLevel > 0 and ('  [' .. TRUCO_NAME[self.trucoLevel] .. ']') or ''
     local status
-    if self.aiMessage then
+    if #self.dialogs > 0 then
         status = nil
     elseif self.canto then
         status = self.canto.responder == 'human' and 'Envido: respond' or 'AI is thinking...'
