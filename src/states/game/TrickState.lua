@@ -8,6 +8,9 @@ local HUMAN_PLAYED_Y = 92
 local HUMAN_HAND_Y   = 146
 local HUMAN_HAND_RAISE = 12  -- how far the highlighted/hovered card lifts
 local STACK_DX, STACK_DY = 12, 12         -- per-card offset so a side's played cards fan out
+-- ...and the two fans point away from each other (AI left, human right) so a
+-- 3-card hand never has the AI's last card colliding with the human's first.
+local STACK_DIR = { ai = -1, human = 1 }
 local SIDE_MSG_Y = { ai = 66, human = 112 }  -- dialog box Y per side (AI up, human down)
 
 -- envido/truco call buttons, right-side column
@@ -18,6 +21,7 @@ local CALL_LABEL = { envido = 'Envido', real = 'Real envido', falta = 'Falta env
 
 local function handYFor(side)   return side == 'ai' and AI_HAND_Y or HUMAN_HAND_Y end
 local function playedYFor(side) return side == 'ai' and AI_PLAYED_Y or HUMAN_PLAYED_Y end
+local function playedXFor(side) return cardRowX(side == 'ai' and 1 or 2, 2) end
 local function other(side)      return side == 'human' and 'ai' or 'human' end
 
 TrickState = Class{__includes = BaseState}
@@ -94,7 +98,7 @@ function TrickState:playCard(side, card, hand)
 
     -- stack: each card lands a step further along than this side's previous ones
     local idx = #self.playedStack[side]
-    local toX = cardRowX(side == 'ai' and 1 or 2, 2) + STACK_DX * idx
+    local toX = playedXFor(side) + STACK_DIR[side] * STACK_DX * idx
     local toY = playedYFor(side) + STACK_DY * idx
     local tilt = math.rad(math.random(-7, 7))  -- small toss tilt, settles there
     Timer.tween(0.2, { [a] = { x = toX, y = toY, rot = tilt } }):finish(function()
