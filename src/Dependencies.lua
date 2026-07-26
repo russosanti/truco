@@ -18,8 +18,8 @@ require 'src.states.game.FadeInState'
 require 'src.states.game.FadeOutState'
 require 'src.states.game.StartState'
 
+require 'src.gui.Panel'  -- used by TrickState for the "AI: <call>" message box
 -- require 'src.gui.Menu'
--- require 'src.gui.Panel'
 -- require 'src.gui.ProgressBar'
 -- require 'src.gui.Selection'
 -- require 'src.gui.Textbox'
@@ -45,6 +45,11 @@ require 'src.envido_rules'
 require 'src.canto'
 require 'src.envido_canto'
 require 'src.EnvidoAiStub'
+
+-- PRD 4: truco. Pure point/gating math + a throwaway decision stub. Truco lives
+-- entirely inside TrickState (state-local), so nothing else changes.
+require 'src.truco_rules'
+require 'src.TrucoAiStub'
 
 require 'src.states.game.HandLoopState'
 require 'src.states.game.DealState'

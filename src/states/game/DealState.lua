@@ -1,4 +1,5 @@
--- Deals a fresh hand, then hands off to the (empty) cantos window.
+-- Deals a fresh hand, then hands off to the first trick (envido/truco calling
+-- both live in TrickState now).
 
 DealState = Class{__includes = BaseState}
 

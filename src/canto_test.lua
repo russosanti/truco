@@ -23,16 +23,15 @@ T('canto (engine + envido binding)', function(t)
         t:assert(c.cumulative == 2, 'envido pot = 2')
         c:accept()
         t:assert(c.resolved and c.outcome.kind == 'accept', 'resolved as accept')
-        -- mano=human with the better hand -> human wins the pot of 2
-        local side, pts = envidoAward(c.outcome, 'human',
-            hand('espadas_7','espadas_6','oros_5'), hand('copas_7','copas_5','bastos_4'), 0, 0)
+        -- mano=human 33 vs pie 32 -> human wins the pot of 2
+        local side, pts = envidoAward(c.outcome, 'human', 33, 32, 0, 0)
         t:assert(side == 'human' and pts == 2, 'human wins envido, +2')
     end)
 
     t('reject pays the pre-call pot to the caller (floored at 1)', function(t)
         local c = Canto(ENVIDO_CANTO, 'human', 'envido')
         c:reject()
-        local side, pts = envidoAward(c.outcome, 'human', hand('oros_3'), hand('oros_4'), 0, 0)
+        local side, pts = envidoAward(c.outcome, 'human', 0, 0, 0, 0)  -- reject ignores values
         t:assert(side == 'human' and pts == 1, 'rejected lone Envido: caller +1')
     end)
 
@@ -46,9 +45,8 @@ T('canto (engine + envido binding)', function(t)
         t:assert(c.responder == 'ai', 'AI must answer the raise')
         t:assert(#c:availableRaises() == 1 and c:availableRaises()[1] == 'falta', 'only falta left after real')
         c:accept()
-        -- mano = AI, AI has the better hand -> AI wins pot 5
-        local side, pts = envidoAward(c.outcome, 'ai',
-            hand('copas_3','copas_2','bastos_4'), hand('espadas_7','espadas_6','oros_5'), 0, 0)
+        -- mano = AI 33 vs pie 25 -> AI wins pot 5
+        local side, pts = envidoAward(c.outcome, 'ai', 33, 25, 0, 0)
         t:assert(side == 'ai' and pts == 5, 'AI wins raised chain, +5')
     end)
 
@@ -58,9 +56,8 @@ T('canto (engine + envido binding)', function(t)
         t:assert(#c:availableRaises() == 0, 'no raises past falta')
         t:assert(c.cumulative == 0, 'ceiling adds nothing to the pot')
         c:accept()
-        -- malas (leader < 15), human wins -> 30 - human score
-        local side, pts = envidoAward(c.outcome, 'human',
-            hand('copas_7','copas_6','oros_5'), hand('espadas_7','espadas_3','bastos_4'), 10, 5)
+        -- malas (leader < 15), mano=human 33 vs pie 30, human wins -> 30 - human score
+        local side, pts = envidoAward(c.outcome, 'human', 33, 30, 10, 5)
         t:assert(side == 'human' and pts == 20, 'falta malas: human 10 -> +20')
     end)
 
@@ -70,7 +67,7 @@ T('canto (engine + envido binding)', function(t)
         -- after human opens envido, responder is AI; raise() is the responder raising
         t:assert(c.responder == 'human', 'after AI raises falta, human must answer')
         c:reject()
-        local side, pts = envidoAward(c.outcome, 'human', hand('oros_3'), hand('oros_4'), 0, 0)
+        local side, pts = envidoAward(c.outcome, 'human', 0, 0, 0, 0)  -- reject ignores values
         t:assert(side == 'ai' and pts == 2, 'Envido->Falta rejected: falta caller (AI) wins the 2')
     end)
 end)
