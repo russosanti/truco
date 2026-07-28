@@ -16,11 +16,15 @@ function StartState:init()
 end
 
 function StartState:update(dt)
-    -- PRD 7 replaces this with real menu navigation; for now Enter drops
-    -- straight into a playable hand loop
+    -- PRD 7 replaces this with real menu navigation (and is what will pick the
+    -- format per tournament round); until then these two keys are the only way
+    -- to reach both match formats
     if love.keyboard.wasPressed('return') then
         gStateStack:pop()
-        gStateStack:push(HandLoopState())
+        gStateStack:push(HandLoopState('best_of_3'))
+    elseif love.keyboard.wasPressed('s') then
+        gStateStack:pop()
+        gStateStack:push(HandLoopState('single_chico'))
     end
 end
 
@@ -32,7 +36,8 @@ function StartState:render()
     love.graphics.printf('Truco Argentino', 0, VIRTUAL_HEIGHT / 2 - 60, VIRTUAL_WIDTH, 'center')
 
     love.graphics.setFont(gFonts['small'])
-    love.graphics.printf('press Enter to play a hand -- placeholder menu, replaced in PRD 7', 0, VIRTUAL_HEIGHT / 2 - 10, VIRTUAL_WIDTH, 'center')
+    love.graphics.printf('Enter: partida (best of 3)     S: single chico', 0, VIRTUAL_HEIGHT / 2 - 14, VIRTUAL_WIDTH, 'center')
+    love.graphics.printf('placeholder menu, replaced in PRD 7', 0, VIRTUAL_HEIGHT / 2 - 4, VIRTUAL_WIDTH, 'center')
 
     love.graphics.draw(gTextures['deck-sheet'], self.sampleCardQuad,
         VIRTUAL_WIDTH / 2 - 32.5, VIRTUAL_HEIGHT / 2 + 15, 0, 0.5, 0.5)

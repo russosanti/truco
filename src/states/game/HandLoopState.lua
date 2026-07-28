@@ -3,11 +3,18 @@
 
 HandLoopState = Class{__includes = BaseState}
 
-function HandLoopState:init()
+function HandLoopState:init(matchFormat)
     self.humanScore = 0
     self.aiScore = 0
     self.handNumber = 1
     self.deck = Deck()
+
+    -- PRD 7 passes 'single_chico' for early tournament rounds; a standalone
+    -- match (and the Final) is a best-of-3 partida
+    self.matchFormat = matchFormat or 'best_of_3'
+    self.chicosWon = { human = 0, ai = 0 }
+    self.chicoNumber = 1
+    self.handAborted = false
 
     -- the only coin flip; every later hand alternates the dealer deterministically
     self.dealer = math.random(2) == 1 and 'human' or 'ai'
@@ -22,7 +29,50 @@ function HandLoopState:init()
         ['deal']  = function() return DealState(self) end,
         ['trick'] = function() return TrickState(self) end,
         ['score'] = function() return HandScoreState(self) end,
+        ['chico'] = function() return ChicoScoreState(self) end,
     }
+    self.machine:change('deal')
+end
+
+-- The one place scores change (PRD 5 §3). Envido pays out mid-hand from
+-- TrickState while trick/truco points land in HandScoreState -- both come
+-- through here, so no path can cross 30 without completing the chico.
+-- Returns true when the chico ended, i.e. the caller's hand is over.
+function HandLoopState:awardPoints(side, points)
+    if side == 'human' then
+        self.humanScore = self.humanScore + points
+    else
+        self.aiScore = self.aiScore + points
+    end
+
+    local winner = chicoWinner(self.humanScore, self.aiScore)
+    if not winner then return false end
+
+    -- a chico can land mid-hand (envido resolves before trick-play is done);
+    -- whatever the hand had in flight is abandoned, not unwound
+    self.handAborted = true
+    self.chicosWon[winner] = self.chicosWon[winner] + 1
+    self.machine:change('chico', { winner = winner })
+    return true
+end
+
+-- Phase changes go through here so the abandoned hand's still-armed timers
+-- (an AI think, resolve()'s pause) can't drag a dead hand into the next chico.
+-- Clearing the timers instead isn't safe: we'd be inside a Timer callback.
+function HandLoopState:changePhase(name, params)
+    if self.handAborted then return end
+    self.machine:change(name, params)
+end
+
+-- Start the next chico of a partida: same match, scores back to zero.
+function HandLoopState:startNextChico()
+    self.humanScore = 0
+    self.aiScore = 0
+    self.chicoNumber = self.chicoNumber + 1
+    self.handAborted = false
+    -- rotation carries on unbroken across the chico boundary
+    self.dealer = self.dealer == 'human' and 'ai' or 'human'
+    self.handNumber = self.handNumber + 1
     self.machine:change('deal')
 end
 

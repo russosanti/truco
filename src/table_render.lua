@@ -54,6 +54,10 @@ function drawHud(loop, status)
     love.graphics.setFont(gFonts['small'])
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.print('Hand ' .. loop.handNumber, 4, 2)
+    -- only a partida has a chico tally worth showing
+    if loop.matchFormat == 'best_of_3' then
+        love.graphics.print('chicos ' .. loop.chicosWon.human .. ' - ' .. loop.chicosWon.ai, 4, 12)
+    end
     love.graphics.printf('You ' .. loop.humanScore .. '  -  ' .. loop.aiScore .. ' AI',
         0, 2, VIRTUAL_WIDTH - 4, 'right')
     love.graphics.printf('mano: ' .. tostring(loop.mano), 0, 12, VIRTUAL_WIDTH - 4, 'right')

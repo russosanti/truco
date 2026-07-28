@@ -51,10 +51,16 @@ require 'src.EnvidoAiStub'
 require 'src.truco_rules'
 require 'src.TrucoAiStub'
 
+-- PRD 5: match structure. Every score change funnels through
+-- HandLoopState:awardPoints, which is what completes a chico.
+require 'src.match_rules'
+
 require 'src.states.game.HandLoopState'
 require 'src.states.game.DealState'
 require 'src.states.game.TrickState'
 require 'src.states.game.HandScoreState'
+require 'src.states.game.ChicoScoreState'
+require 'src.states.game.MatchEndState'
 
 gTextures = {
     ['deck-sheet'] = love.graphics.newImage('graphics/deck_sheet.png'),

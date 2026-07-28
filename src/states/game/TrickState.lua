@@ -18,11 +18,15 @@ local BTN_W, BTN_H, BTN_GAP = 92, 16, 4
 local BTN_X = VIRTUAL_WIDTH - BTN_W - 6
 local BTN_Y0 = 60
 local CALL_LABEL = { envido = 'Envido', real = 'Real envido', falta = 'Falta envido' }
+local ENVIDO_OPENS = { 'envido', 'real', 'falta' }  -- what either side may open with
 
 local function handYFor(side)   return side == 'ai' and AI_HAND_Y or HUMAN_HAND_Y end
 local function playedYFor(side) return side == 'ai' and AI_PLAYED_Y or HUMAN_PLAYED_Y end
 local function playedXFor(side) return cardRowX(side == 'ai' and 1 or 2, 2) end
 local function other(side)      return side == 'human' and 'ai' or 'human' end
+-- every message box names its speaker; position alone reads as ambiguous once
+-- the two sides talk in sequence (a bare number looked like the AI's)
+local function speaker(side)    return side == 'ai' and 'AI: ' or 'You: ' end
 
 TrickState = Class{__includes = BaseState}
 
@@ -61,7 +65,7 @@ end
 -- Announce an AI move (only the AI's moves get a message). Blocks input for
 -- 1.5s while shown, then clears and runs the optional continuation.
 function TrickState:showAiMessage(label, afterFn)
-    self.dialogs = { self:makeDialog('ai', 'AI: ' .. label) }
+    self.dialogs = { self:makeDialog('ai', speaker('ai') .. label) }
     Timer.after(1.5, function()
         self.dialogs = {}
         if afterFn then afterFn() end
@@ -150,7 +154,7 @@ function TrickState:resolve()
         if decided then
             -- the trick winner takes the accepted truco stake, or the 1-point base
             local points = self.trucoLevel > 0 and self.trucoLevel or 1
-            self.loop.machine:change('score', { winner = decided, points = points })
+            self.loop:changePhase('score', { winner = decided, points = points })
         else
             self.leader = nextLeader(result, self.leader, self.mano)
             self:startTrick()
@@ -173,8 +177,8 @@ function TrickState:update(dt)
     -- a message/reveal box is on screen; freeze input until it clears
     if #self.dialogs > 0 then return end
 
-    -- an active envido negotiation takes over input (this also covers the
-    -- interrupt's envido phase, with a truco call still pending underneath)
+    -- an active envido negotiation takes over input (including the interrupt's,
+    -- which has already discarded the truco call that provoked it)
     if self.canto then
         if self.canto.responder == 'human' then
             self:updateCallButtons(clicked)
@@ -205,13 +209,14 @@ end
 
 -- Envido: first trick, before this side plays its card, once per hand -- and
 -- NOT once truco has been accepted (accepting truco closes the envido window;
--- the interrupt below is the only way envido happens alongside truco).
+-- the interrupt below is the only way envido happens in answer to a truco).
 function TrickState:canCallEnvido()
     return self.tricksPlayed == 0 and not self.envidoUsed and self.trucoLevel == 0
 end
 
 -- The envido interrupt is reachable only while a *first* truco is pending
 -- (hand opened with truco, nothing played, envido unused, nothing accepted yet).
+-- Taking it throws that truco away -- see openCanto.
 function TrickState:canInterruptEnvido()
     return self.tricksPlayed == 0 and not self.envidoUsed
        and self.playCount == 0 and self.trucoLevel == 0
@@ -231,16 +236,20 @@ function TrickState:callButtons()
 
     elseif self.trucoPending and other(self.trucoPending.caller) == 'human' then
         list = { { label = 'Quiero', act = 'accept' }, { label = 'No quiero', act = 'reject' } }
+        -- "el envido esta primero": any envido variant may answer a truco, and
+        -- doing so discards the truco -- play just resumes once the envido ends
         if self:canInterruptEnvido() then
-            list[#list + 1] = { label = 'Envido primero', act = 'envido-primero' }
+            for _, c in ipairs(ENVIDO_OPENS) do
+                list[#list + 1] = { label = CALL_LABEL[c], act = 'call:' .. c }
+            end
         end
 
     elseif not self.canto and not self.trucoPending
            and self.currentPlayer == 'human' and self.playCount < 2 then
         if self:canCallEnvido() then
-            list[#list + 1] = { label = 'Envido', act = 'call:envido' }
-            list[#list + 1] = { label = 'Real envido', act = 'call:real' }
-            list[#list + 1] = { label = 'Falta envido', act = 'call:falta' }
+            for _, c in ipairs(ENVIDO_OPENS) do
+                list[#list + 1] = { label = CALL_LABEL[c], act = 'call:' .. c }
+            end
         end
         local lvl = availableTrucoCall(self.trucoLevel, self.trucoLeader, 'human', self.trucoPending)
         if lvl then
@@ -281,8 +290,6 @@ function TrickState:applyCallButton(act)
     elseif act == 'reject' then
         if self.canto then self.canto:reject(); self:finishCanto()
         else self:resolveTrucoReject() end
-    elseif act == 'envido-primero' then
-        self:openCanto('human', 'envido')  -- interrupt: run envido, truco stays pending
     elseif act == 'truco' then
         self:callTruco('human')
     elseif act == 'fold' then
@@ -320,11 +327,11 @@ end
 function TrickState:resolveTrucoReject()
     local p = self.trucoPending
     self.trucoPending = nil
-    self.loop.machine:change('score', { winner = p.caller, points = trucoRejectValue(p.level) })
+    self.loop:changePhase('score', { winner = p.caller, points = trucoRejectValue(p.level) })
 end
 
 function TrickState:resolveFold(side)
-    self.loop.machine:change('score', { winner = other(side), points = trucoFoldValue(self.trucoLevel) })
+    self.loop:changePhase('score', { winner = other(side), points = trucoFoldValue(self.trucoLevel) })
 end
 
 function TrickState:aiRespondTruco()
@@ -335,7 +342,7 @@ function TrickState:aiRespondTruco()
         if not self.trucoPending then return end
         -- "el envido esta primero": if the hand was opened with truco and the AI
         -- has a strong envido, it takes envido first, then answers the truco
-        if self:canInterruptEnvido() and EnvidoAiStub.chooseOpen(self.loop.aiHand) == 'envido' then
+        if self:canInterruptEnvido() and EnvidoAiStub.chooseOpen(self.envidoValue.ai) == 'envido' then
             self:openCanto('ai', 'envido')  -- truco stays pending; answered after
             return
         end
@@ -347,7 +354,7 @@ function TrickState:aiRespondTruco()
             self.trucoPending = nil
             -- announce first, then end the hand when the message clears
             self:showAiMessage('No quiero', function()
-                self.loop.machine:change('score', { winner = p.caller, points = trucoRejectValue(p.level) })
+                self.loop:changePhase('score', { winner = p.caller, points = trucoRejectValue(p.level) })
             end)
         end
     end)
@@ -355,6 +362,9 @@ end
 
 function TrickState:openCanto(opener, callType)
     self.envidoUsed = true
+    -- answering a truco with envido discards that truco outright: no quiero is
+    -- owed once the envido is done, and either side may call truco afresh
+    self.trucoPending = nil
     self.canto = Canto(ENVIDO_CANTO, opener, callType)
     self.aiThinking = false  -- let the responder's think re-arm
     if opener == 'ai' then self:showAiMessage(CALL_LABEL[callType]) end
@@ -366,11 +376,11 @@ function TrickState:aiRespondCanto()
     Timer.after(0.6, function()
         self.aiThinking = false
         if not self.canto then return end
-        -- stub never raises: quiero / no quiero only
-        local resp = EnvidoAiStub.chooseResponse(self.loop.aiHand)
+        -- stub never raises: quiero / no quiero only. finishCanto does the
+        -- announcing -- it knows both the outcome and who answered.
+        local resp = EnvidoAiStub.chooseResponse(self.envidoValue.ai)
         if resp == 'quiero' then self.canto:accept() else self.canto:reject() end
-        self:finishCanto()  -- accept -> the reveal is the feedback; reject shows a message below
-        if resp == 'noquiero' then self:showAiMessage('No quiero') end
+        self:finishCanto()
     end)
 end
 
@@ -385,7 +395,7 @@ function TrickState:updateAiTurn()
         if TrucoAiStub.wantsToCall(self.loop.aiHand)
            and availableTrucoCall(self.trucoLevel, self.trucoLeader, 'ai', self.trucoPending) then
             self:callTruco('ai')
-        elseif self:canCallEnvido() and EnvidoAiStub.chooseOpen(self.loop.aiHand) == 'envido' then
+        elseif self:canCallEnvido() and EnvidoAiStub.chooseOpen(self.envidoValue.ai) == 'envido' then
             self:openCanto('ai', 'envido')
         else
             -- decision lives in AiStub so PRD 6 can swap it without touching this state
@@ -394,46 +404,63 @@ function TrickState:updateAiTurn()
     end)
 end
 
+-- Envido pays out here, possibly mid-trick-1; awardPoints is what notices a
+-- chico ending on it and takes the hand away from us (PRD 5 §3).
 function TrickState:award(side, points)
-    if side == 'human' then
-        self.loop.humanScore = self.loop.humanScore + points
-    else
-        self.loop.aiScore = self.loop.aiScore + points
-    end
+    self.loop:awardPoints(side, points)
 end
 
--- Resolve the envido. Accept runs the mano-then-pie reveal showdown, applying
--- points only after it; reject pays out at once (no showdown, per reglamento).
--- The truco pending (if any -- the interrupt) is left intact for afterward.
+function TrickState:awardCanto(outcome)
+    local side, points = envidoAward(outcome, self.mano,
+        self.envidoValue[self.mano], self.envidoValue[other(self.mano)],
+        self.loop.humanScore, self.loop.aiScore)
+    self:award(side, points)
+end
+
+-- Resolve the envido, and do all the announcing: the AI's answer is only ever
+-- worth showing here, and it has to be shown BEFORE the payout -- an award can
+-- end the chico, which tears this state down and would swallow the message.
+-- Accept runs the mano-then-pie showdown; reject has none (per reglamento).
 function TrickState:finishCanto()
     local outcome = self.canto.outcome
+    local answerer = self.canto.responder  -- whoever accepted/rejected, raises included
     self.canto = nil
     self.aiThinking = false
+
     if outcome.kind == 'accept' then
-        self:revealEnvido(outcome)
+        if answerer == 'ai' and self.mano == 'ai' then
+            -- mano declares first, so the AI's quiero rides along on its number
+            self:revealEnvido(outcome, 'Quiero')
+        elseif answerer == 'ai' then
+            -- AI is pie: quiero now, its number comes with its response below
+            self:showAiMessage('Quiero', function() self:revealEnvido(outcome) end)
+        else
+            self:revealEnvido(outcome)  -- the human clicked Quiero; nothing to announce
+        end
+    elseif answerer == 'ai' then
+        self:showAiMessage('No quiero', function() self:awardCanto(outcome) end)
     else
-        local side, points = envidoAward(outcome, self.mano,
-            self.envidoValue[self.mano], self.envidoValue[other(self.mano)],
-            self.loop.humanScore, self.loop.aiScore)
-        self:award(side, points)
+        self:awardCanto(outcome)
     end
 end
 
 -- Showdown: mano's number, then pie's ("son mejores" if better, else "son
 -- buenas"), each held ~2s; points land after. Input is frozen while dialogs show.
-function TrickState:revealEnvido(outcome)
+-- manoPrefix (only "Quiero") prepends to the mano's declaration when the same
+-- side both accepted and declares first.
+function TrickState:revealEnvido(outcome, manoPrefix)
     local pie = other(self.mano)
     local manoVal, pieVal = self.envidoValue[self.mano], self.envidoValue[pie]
+    local manoText = manoPrefix and (manoPrefix .. ', ' .. manoVal) or tostring(manoVal)
 
-    self.dialogs = { self:makeDialog(self.mano, tostring(manoVal)) }
+    self.dialogs = { self:makeDialog(self.mano, speaker(self.mano) .. manoText) }
     Timer.after(2, function()
+        -- conceding says nothing about your own number, per reglamento
         local pieText = pieVal > manoVal and (pieVal .. ' son mejores') or 'son buenas'
-        table.insert(self.dialogs, self:makeDialog(pie, pieText))
+        table.insert(self.dialogs, self:makeDialog(pie, speaker(pie) .. pieText))
         Timer.after(2, function()
             self.dialogs = {}
-            local side, points = envidoAward(outcome, self.mano, manoVal, pieVal,
-                self.loop.humanScore, self.loop.aiScore)
-            self:award(side, points)
+            self:awardCanto(outcome)
         end)
     end)
 end

@@ -1,6 +1,6 @@
 -- Awards the hand, then rotates dealer/mano and deals the next one. Points are
 -- computed by whoever ended the hand (trick resolution, truco reject, or fold)
--- and passed in -- this state stays agnostic to how. No chico/partida check yet (PRD 5).
+-- and passed in -- this state stays agnostic to how.
 
 HandScoreState = Class{__includes = BaseState}
 
@@ -13,16 +13,14 @@ function HandScoreState:enter(params)
     self.winner = params.winner
     self.points = params.points or 1
 
-    if self.winner == 'human' then
-        loop.humanScore = loop.humanScore + self.points
-    else
-        loop.aiScore = loop.aiScore + self.points
-    end
+    -- awardPoints owns chico completion; if this hand ended the chico it has
+    -- already moved the loop on, so don't queue another deal
+    if loop:awardPoints(self.winner, self.points) then return end
 
     Timer.after(2.0, function()
         loop.dealer = loop.dealer == 'human' and 'ai' or 'human'  -- flips every hand
         loop.handNumber = loop.handNumber + 1
-        loop.machine:change('deal')
+        loop:changePhase('deal')
     end)
 end
 
