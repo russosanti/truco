@@ -36,6 +36,7 @@ function TrickState:init(loop)
     self.mano = loop.mano
     self.leader = loop.mano  -- mano leads the first trick
     self.tricksPlayed = 0
+    self.firstTrickWinner = nil  -- decides a 1-1 hand ending in a parda; nil if trick 1 tied
     self.mouseWasDown = false  -- for left-click edge detection
     self.envidoUsed = false    -- an envido negotiation has already happened this hand
     self.canto = nil           -- active envido negotiation, or nil
@@ -141,13 +142,16 @@ function TrickState:resolve()
     end
 
     self.tricksPlayed = self.tricksPlayed + 1
+    if self.tricksPlayed == 1 then
+        self.firstTrickWinner = winnerSide  -- already nil on a parda
+    end
     if result == 'tie' then
         self.resultText = 'Parda!'
     else
         self.resultText = winnerSide == 'human' and 'You win the trick' or 'AI wins the trick'
     end
 
-    local decided = isHandDecided(self.wins, result == 'tie', self.tricksPlayed, self.mano)
+    local decided = isHandDecided(self.wins, self.firstTrickWinner, self.tricksPlayed, self.mano)
 
     -- brief pause so both played cards and the outcome are readable
     Timer.after(1.0, function()
@@ -334,20 +338,37 @@ function TrickState:resolveFold(side)
     self.loop:changePhase('score', { winner = other(side), points = trucoFoldValue(self.trucoLevel) })
 end
 
+-- Everything the AI's decisions read about the current position (PRD 6). Passed
+-- as one table so later decisions can want more without reshaping call sites.
+function TrickState:aiContext()
+    return {
+        against = self.trickCards.human,  -- nil unless the human has already played
+        myWins = self.wins.ai,
+        theirWins = self.wins.human,
+        tricksPlayed = self.tricksPlayed,
+        trucoLevel = self.trucoLevel,
+        myScore = self.loop.aiScore,
+        theirScore = self.loop.humanScore,
+    }
+end
+
 function TrickState:aiRespondTruco()
     if self.aiThinking then return end
     self.aiThinking = true
     Timer.after(0.6, function()
         self.aiThinking = false
         if not self.trucoPending then return end
-        -- "el envido esta primero": if the hand was opened with truco and the AI
-        -- has a strong envido, it takes envido first, then answers the truco
-        if self:canInterruptEnvido() and EnvidoAiStub.chooseOpen(self.envidoValue.ai) == 'envido' then
-            self:openCanto('ai', 'envido')  -- truco stays pending; answered after
+        local ctx = self:aiContext()
+        -- "el envido esta primero": answer the truco with envido instead when the
+        -- AI has one worth calling (which discards the truco -- see openCanto)
+        local open = self:canInterruptEnvido()
+            and EnvidoAiStub.chooseOpen(self.envidoValue.ai, ctx) or 'pass'
+        if open ~= 'pass' then
+            self:openCanto('ai', open)
             return
         end
         local p = self.trucoPending
-        if TrucoAiStub.respond(self.loop.aiHand, self.wins.ai > 0) == 'quiero' then
+        if TrucoAiStub.respond(self.loop.aiHand, ctx) == 'quiero' then
             self:resolveTrucoAccept()
             self:showAiMessage('Quiero')
         else
@@ -376,30 +397,53 @@ function TrickState:aiRespondCanto()
     Timer.after(0.6, function()
         self.aiThinking = false
         if not self.canto then return end
-        -- stub never raises: quiero / no quiero only. finishCanto does the
-        -- announcing -- it knows both the outcome and who answered.
-        local resp = EnvidoAiStub.chooseResponse(self.envidoValue.ai)
-        if resp == 'quiero' then self.canto:accept() else self.canto:reject() end
-        self:finishCanto()
+        -- availableRaises keeps the AI's escalation legal. A raise is announced
+        -- here (it pays nothing, so it owns no award) and hands the answer back
+        -- to the human; accept/reject go to finishCanto, which does that talking.
+        local resp = EnvidoAiStub.chooseResponse(self.envidoValue.ai,
+            self.canto:availableRaises(), self:aiContext())
+        if resp == 'quiero' then
+            self.canto:accept()
+            self:finishCanto()
+        elseif resp == 'noquiero' then
+            self.canto:reject()
+            self:finishCanto()
+        else
+            self.canto:raise(resp)
+            self:showAiMessage(CALL_LABEL[resp])
+        end
     end)
 end
 
--- AI's turn with no live call: truco first (so an AI-mano with a brava opens the
--- hand with truco, making the envido interrupt reachable), then envido, then a card.
+-- AI's turn with no live call. A Real/Falta-worthy envido goes FIRST: accepting a
+-- truco closes the envido window, so trucoing on a big envido throws it away. A
+-- weak envido still lets truco open the hand, which is what keeps the human's
+-- "envido primero" interrupt reachable. Then truco, plain envido, fold, card.
 function TrickState:updateAiTurn()
     if self.aiThinking then return end
     self.aiThinking = true
     Timer.after(0.6, function()
         self.aiThinking = false
         if self.currentPlayer ~= 'ai' or self.resolving or self.canto or self.trucoPending then return end
-        if TrucoAiStub.wantsToCall(self.loop.aiHand)
-           and availableTrucoCall(self.trucoLevel, self.trucoLeader, 'ai', self.trucoPending) then
+
+        local ctx = self:aiContext()
+        -- asked once: a second call would roll the bluff again and could disagree
+        local open = self:canCallEnvido()
+            and EnvidoAiStub.chooseOpen(self.envidoValue.ai, ctx) or 'pass'
+        local trucoLvl = availableTrucoCall(self.trucoLevel, self.trucoLeader, 'ai', self.trucoPending)
+
+        if open == 'real' or open == 'falta' then
+            self:openCanto('ai', open)
+        elseif trucoLvl and TrucoAiStub.wantsToCall(self.loop.aiHand, ctx) then
             self:callTruco('ai')
-        elseif self:canCallEnvido() and EnvidoAiStub.chooseOpen(self.envidoValue.ai) == 'envido' then
-            self:openCanto('ai', 'envido')
+        elseif open ~= 'pass' then
+            self:openCanto('ai', open)
+        elseif TrucoAiStub.wantsToFold(self.loop.aiHand, ctx) then
+            -- announce before the hand ends, same rule as a truco no quiero
+            self:showAiMessage('Me voy al mazo', function() self:resolveFold('ai') end)
         else
-            -- decision lives in AiStub so PRD 6 can swap it without touching this state
-            self:playCard('ai', AiStub.chooseCard(self.loop.aiHand), self.loop.aiHand)
+            -- decision lives in AiStub so PRD 7+ can swap it without touching this state
+            self:playCard('ai', AiStub.chooseCard(self.loop.aiHand, ctx), self.loop.aiHand)
         end
     end)
 end
