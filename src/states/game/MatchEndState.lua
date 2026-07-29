@@ -1,6 +1,6 @@
 -- End of the partida. Takes HandLoopState's place on the stack, so it reads the
 -- final tally off the loop once at construction rather than holding onto it.
--- Enter loops back to the title -- PRD 7 replaces that with a real menu.
+-- Enter loops back to the menu.
 
 MatchEndState = Class{__includes = BaseState}
 
@@ -15,7 +15,7 @@ end
 function MatchEndState:update(dt)
     if love.keyboard.wasPressed('return') then
         gStateStack:pop()
-        gStateStack:push(StartState())
+        gStateStack:push(MenuState())
     end
 end
 

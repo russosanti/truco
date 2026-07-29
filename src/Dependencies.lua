@@ -16,7 +16,7 @@ require 'src.states.StateStack'
 
 require 'src.states.game.FadeInState'
 require 'src.states.game.FadeOutState'
-require 'src.states.game.StartState'
+require 'src.states.game.MenuState'
 
 require 'src.gui.Panel'  -- used by TrickState for the "AI: <call>" message box
 -- require 'src.gui.Menu'

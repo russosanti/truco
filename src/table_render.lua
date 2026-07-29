@@ -14,9 +14,10 @@ end
 
 -- Same as drawCardFront but rotated about the card's center; (x,y) stays the
 -- top-left anchor. Origin is in unscaled image space, so at rot=0 this is
--- pixel-identical to drawCardFront.
-function drawCardFrontRot(card, x, y, rot)
-    love.graphics.setColor(1, 1, 1, 1)
+-- pixel-identical to drawCardFront. alpha defaults to opaque -- MenuState's
+-- falling-cards backdrop passes it down so the layer reads as texture.
+function drawCardFrontRot(card, x, y, rot, alpha)
+    love.graphics.setColor(1, 1, 1, alpha or 1)
     love.graphics.draw(gTextures['deck-sheet'], gFrames['cards'][card.spriteQuadIndex],
         x + CARD_W / 2, y + CARD_H / 2, rot, CARD_SCALE, CARD_SCALE, 130 / 2, 200 / 2)
 end
