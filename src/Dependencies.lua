@@ -35,6 +35,7 @@ require 'src.Deck'
 -- PRD 2: hand loop. Pure rules + throwaway AI + shared drawing, then the
 -- HandLoopState and its four phase states (deal -> cantos -> trick -> score).
 require 'src.trick_rules'
+require 'src.ai_config'  -- PRD 6: shared aggression/bluff knobs, before the AI files
 require 'src.AiStub'
 require 'src.table_render'
 
