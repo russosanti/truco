@@ -28,7 +28,7 @@ function love.load()
 
     -- same stack pattern as pokebowl: states push/pop and render bottom-to-top
     gStateStack = StateStack()
-    gStateStack:push(StartState())
+    gStateStack:push(MenuState())
 
     love.keyboard.keysPressed = {}
 end
