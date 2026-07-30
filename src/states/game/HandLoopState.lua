@@ -3,15 +3,23 @@
 
 HandLoopState = Class{__includes = BaseState}
 
-function HandLoopState:init(matchFormat)
+-- opts = { matchFormat, aiName, onMatchEnd }. All optional: a bare
+-- HandLoopState() is a standalone best-of-3 against an unnamed "AI" that returns
+-- to the menu when it ends.
+function HandLoopState:init(opts)
+    opts = opts or {}
     self.humanScore = 0
     self.aiScore = 0
     self.handNumber = 1
     self.deck = Deck()
 
-    -- PRD 7 passes 'single_chico' for early tournament rounds; a standalone
+    -- the tournament passes 'single_chico' for its early rounds; a standalone
     -- match (and the Final) is a best-of-3 partida
-    self.matchFormat = matchFormat or 'best_of_3'
+    self.matchFormat = opts.matchFormat or 'best_of_3'
+    self.aiName = opts.aiName or 'AI'
+    -- set by whoever launched this match to be handed the result; MatchEndState
+    -- reads it off the loop and falls back to the menu when there's none
+    self.onMatchEnd = opts.onMatchEnd
     self.chicosWon = { human = 0, ai = 0 }
     self.chicoNumber = 1
     self.handAborted = false

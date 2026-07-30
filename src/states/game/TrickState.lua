@@ -24,11 +24,14 @@ local function handYFor(side)   return side == 'ai' and AI_HAND_Y or HUMAN_HAND_
 local function playedYFor(side) return side == 'ai' and AI_PLAYED_Y or HUMAN_PLAYED_Y end
 local function playedXFor(side) return cardRowX(side == 'ai' and 1 or 2, 2) end
 local function other(side)      return side == 'human' and 'ai' or 'human' end
--- every message box names its speaker; position alone reads as ambiguous once
--- the two sides talk in sequence (a bare number looked like the AI's)
-local function speaker(side)    return side == 'ai' and 'AI: ' or 'You: ' end
 
 TrickState = Class{__includes = BaseState}
+
+-- Every message box names its speaker; position alone reads as ambiguous once
+-- the two sides talk in sequence (a bare number looked like the opponent's).
+function TrickState:speaker(side)
+    return side == 'ai' and (self.aiName .. ': ') or 'You: '
+end
 
 function TrickState:init(loop)
     self.loop = loop
@@ -36,6 +39,7 @@ function TrickState:init(loop)
     self.mano = loop.mano
     self.leader = loop.mano  -- mano leads the first trick
     self.tricksPlayed = 0
+    self.aiName = firstNameOf(loop.aiName or 'AI')  -- short form: the HUD and boxes are tight
     self.firstTrickWinner = nil  -- decides a 1-1 hand ending in a parda; nil if trick 1 tied
     self.mouseWasDown = false  -- for left-click edge detection
     self.envidoUsed = false    -- an envido negotiation has already happened this hand
@@ -66,7 +70,7 @@ end
 -- Announce an AI move (only the AI's moves get a message). Blocks input for
 -- 1.5s while shown, then clears and runs the optional continuation.
 function TrickState:showAiMessage(label, afterFn)
-    self.dialogs = { self:makeDialog('ai', speaker('ai') .. label) }
+    self.dialogs = { self:makeDialog('ai', self:speaker('ai') .. label) }
     Timer.after(1.5, function()
         self.dialogs = {}
         if afterFn then afterFn() end
@@ -148,7 +152,7 @@ function TrickState:resolve()
     if result == 'tie' then
         self.resultText = 'Parda!'
     else
-        self.resultText = winnerSide == 'human' and 'You win the trick' or 'AI wins the trick'
+        self.resultText = winnerSide == 'human' and 'You win the trick' or (self.aiName .. ' wins the trick')
     end
 
     local decided = isHandDecided(self.wins, self.firstTrickWinner, self.tricksPlayed, self.mano)
@@ -497,11 +501,11 @@ function TrickState:revealEnvido(outcome, manoPrefix)
     local manoVal, pieVal = self.envidoValue[self.mano], self.envidoValue[pie]
     local manoText = manoPrefix and (manoPrefix .. ', ' .. manoVal) or tostring(manoVal)
 
-    self.dialogs = { self:makeDialog(self.mano, speaker(self.mano) .. manoText) }
+    self.dialogs = { self:makeDialog(self.mano, self:speaker(self.mano) .. manoText) }
     Timer.after(2, function()
         -- conceding says nothing about your own number, per reglamento
         local pieText = pieVal > manoVal and (pieVal .. ' son mejores') or 'son buenas'
-        table.insert(self.dialogs, self:makeDialog(pie, speaker(pie) .. pieText))
+        table.insert(self.dialogs, self:makeDialog(pie, self:speaker(pie) .. pieText))
         Timer.after(2, function()
             self.dialogs = {}
             self:awardCanto(outcome)
@@ -608,16 +612,16 @@ function TrickState:render()
     if #self.dialogs > 0 then
         status = nil
     elseif self.canto then
-        status = self.canto.responder == 'human' and 'Envido: respond' or 'AI is thinking...'
+        status = self.canto.responder == 'human' and 'Envido: respond' or (self.aiName .. ' is thinking...')
     elseif self.trucoPending then
         status = other(self.trucoPending.caller) == 'human'
-            and (TRUCO_NAME[self.trucoPending.level] .. ': respond') or 'AI is thinking...'
+            and (TRUCO_NAME[self.trucoPending.level] .. ': respond') or (self.aiName .. ' is thinking...')
     elseif self.resolving then
         status = self.resultText
     elseif self.currentPlayer == 'human' then
         status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - your turn' .. stake
     else
-        status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - AI is thinking...' .. stake
+        status = 'Trick ' .. (self.tricksPlayed + 1) .. ' - ' .. self.aiName .. ' is thinking...' .. stake
     end
     drawHud(loop, status)
 end

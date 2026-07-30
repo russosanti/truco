@@ -26,6 +26,7 @@ end
 
 function HandScoreState:render()
     love.graphics.clear(24/255, 89/255, 53/255, 1)
-    local who = self.winner == 'human' and 'You win the hand!' or 'AI wins the hand'
+    local who = self.winner == 'human' and 'You win the hand!'
+        or (firstNameOf(self.loop.aiName or 'AI') .. ' wins the hand')
     drawHud(self.loop, who .. '  (+' .. self.points .. ')')
 end

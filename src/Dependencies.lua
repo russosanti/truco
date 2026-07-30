@@ -17,6 +17,7 @@ require 'src.states.StateStack'
 require 'src.states.game.FadeInState'
 require 'src.states.game.FadeOutState'
 require 'src.states.game.MenuState'
+require 'src.states.game.TournamentState'
 
 require 'src.gui.Panel'  -- used by TrickState for the "AI: <call>" message box
 -- require 'src.gui.Menu'
@@ -49,6 +50,8 @@ require 'src.EnvidoAiStub'
 
 -- PRD 4: truco. Pure point/gating math + a throwaway decision stub. Truco lives
 -- entirely inside TrickState (state-local), so nothing else changes.
+require 'src.opponent_names'  -- PRD 8: named opponents + the bracket, both pure
+require 'src.tournament_bracket'
 require 'src.truco_rules'
 require 'src.TrucoAiStub'
 
