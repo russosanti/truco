@@ -48,6 +48,11 @@ require 'src.canto'
 require 'src.envido_canto'
 require 'src.EnvidoAiStub'
 
+-- PRD 9: flor. Mandatory, cancels envido, and rides the same Canto engine.
+require 'src.flor_rules'
+require 'src.flor_canto'
+require 'src.FlorAiStub'
+
 -- PRD 4: truco. Pure point/gating math + a throwaway decision stub. Truco lives
 -- entirely inside TrickState (state-local), so nothing else changes.
 require 'src.opponent_names'  -- PRD 8: named opponents + the bracket, both pure

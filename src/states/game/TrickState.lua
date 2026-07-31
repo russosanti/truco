@@ -17,8 +17,13 @@ local SIDE_MSG_Y = { ai = 66, human = 112 }  -- dialog box Y per side (AI up, hu
 local BTN_W, BTN_H, BTN_GAP = 92, 16, 4
 local BTN_X = VIRTUAL_WIDTH - BTN_W - 6
 local BTN_Y0 = 60
-local CALL_LABEL = { envido = 'Envido', real = 'Real envido', falta = 'Falta envido' }
+local CALL_LABEL = {
+    envido = 'Envido', real = 'Real envido', falta = 'Falta envido',
+    contraflor = 'Contraflor', resto = 'Contraflor al resto',
+}
 local ENVIDO_OPENS = { 'envido', 'real', 'falta' }  -- what either side may open with
+-- flor and envido share the negotiation slot; only the wording differs
+local REJECT_LABEL = { envido = 'No quiero', flor = 'Me achico' }
 
 local function handYFor(side)   return side == 'ai' and AI_HAND_Y or HUMAN_HAND_Y end
 local function playedYFor(side) return side == 'ai' and AI_PLAYED_Y or HUMAN_PLAYED_Y end
@@ -43,7 +48,17 @@ function TrickState:init(loop)
     self.firstTrickWinner = nil  -- decides a 1-1 hand ending in a parda; nil if trick 1 tied
     self.mouseWasDown = love.mouse.isDown(1)  -- left-click edge detection; a button already held is not a fresh press
     self.envidoUsed = false    -- an envido negotiation has already happened this hand
-    self.canto = nil           -- active envido negotiation, or nil
+    self.canto = nil           -- active envido/flor negotiation, or nil
+    self.cantoFamily = nil     -- 'envido' | 'flor': which ladder self.canto is running
+    -- flor is mandatory and resolves before anything else this hand; nil means
+    -- that side hasn't got one. No awarding here -- init runs inside
+    -- StateMachine:change, so a chico ending mid-construction would be lost.
+    self.flor = {
+        human = hasFlor(loop.humanHand) and florValue(loop.humanHand) or nil,
+        ai = hasFlor(loop.aiHand) and florValue(loop.aiHand) or nil,
+    }
+    self.florHappened = self.flor.human ~= nil or self.flor.ai ~= nil
+    self.florResolved = not self.florHappened
     self.dialogs = {}          -- list of {text, panel} message boxes on screen
     self.hoveredButton = nil
     -- every card each side has played this hand, stacked (survives across tricks)
@@ -75,6 +90,40 @@ function TrickState:showAiMessage(label, afterFn)
         self.dialogs = {}
         if afterFn then afterFn() end
     end)
+end
+
+-- Runs after the machine has swapped us in, so awarding from here is safe (and
+-- the award is behind the announcement's timer anyway). Flor is mandatory, so
+-- there's nothing to decide about declaring it -- only about escalating.
+function TrickState:enter()
+    if self.florResolved then return end
+
+    local pie = other(self.mano)
+    local declarers = {}
+    if self.flor[self.mano] then declarers[#declarers + 1] = self.mano end
+    if self.flor[pie] then declarers[#declarers + 1] = pie end
+
+    -- announce mano first, then pie, then either pay the lone flor or open the
+    -- contest; each box holds for the usual beat
+    local function announce(i)
+        if i > #declarers then
+            if #declarers == 2 then
+                self:openCanto(self.mano, 'flor', 'flor')
+            else
+                local side = declarers[1]
+                self.florResolved = true
+                self:award(side, FLOR_BASE)
+            end
+            return
+        end
+        local side = declarers[i]
+        self.dialogs = { self:makeDialog(side, self:speaker(side) .. 'Flor') }
+        Timer.after(1.5, function()
+            self.dialogs = {}
+            announce(i + 1)
+        end)
+    end
+    announce(1)
 end
 
 function TrickState:startTrick()
@@ -196,6 +245,10 @@ function TrickState:update(dt)
         return
     end
 
+    -- flor is mandatory and settles before anything else; while it's mid-flight
+    -- (announcements, or its canto above) nothing else in the hand may happen
+    if not self.florResolved then return end
+
     -- a truco call awaiting quiero / no quiero
     if self.trucoPending then
         if other(self.trucoPending.caller) == 'human' then
@@ -218,8 +271,11 @@ end
 -- Envido: first trick, before this side plays its card, once per hand -- and
 -- NOT once truco has been accepted (accepting truco closes the envido window;
 -- the interrupt below is the only way envido happens in answer to a truco).
+-- ...and never at all in a hand where either side had flor ("el envido solo se
+-- juega si nadie tiene flor").
 function TrickState:canCallEnvido()
     return self.tricksPlayed == 0 and not self.envidoUsed and self.trucoLevel == 0
+       and not self.florHappened
 end
 
 -- The envido interrupt is reachable only while a *first* truco is pending
@@ -228,6 +284,7 @@ end
 function TrickState:canInterruptEnvido()
     return self.tricksPlayed == 0 and not self.envidoUsed
        and self.playCount == 0 and self.trucoLevel == 0
+       and not self.florHappened
 end
 
 -- The right-side call buttons for this frame: responses to a live envido/truco
@@ -237,7 +294,8 @@ function TrickState:callButtons()
     local list = {}
 
     if self.canto and self.canto.responder == 'human' then
-        list = { { label = 'Quiero', act = 'accept' }, { label = 'No quiero', act = 'reject' } }
+        list = { { label = 'Quiero', act = 'accept' },
+                 { label = REJECT_LABEL[self.cantoFamily], act = 'reject' } }
         for _, c in ipairs(self.canto:availableRaises()) do
             list[#list + 1] = { label = CALL_LABEL[c], act = 'call:' .. c }
         end
@@ -411,14 +469,21 @@ function TrickState:aiRespondTruco()
     end)
 end
 
-function TrickState:openCanto(opener, callType)
-    self.envidoUsed = true
-    -- answering a truco with envido discards that truco outright: no quiero is
-    -- owed once the envido is done, and either side may call truco afresh
-    self.trucoPending = nil
-    self.canto = Canto(ENVIDO_CANTO, opener, callType)
+-- Opens a negotiation on either ladder; family defaults to envido, since that's
+-- every call site but flor's opening declaration.
+function TrickState:openCanto(opener, callType, family)
+    family = family or 'envido'
+    self.cantoFamily = family
+    if family == 'envido' then
+        self.envidoUsed = true
+        -- answering a truco with envido discards that truco outright: no quiero is
+        -- owed once the envido is done, and either side may call truco afresh
+        self.trucoPending = nil
+    end
+    self.canto = Canto(family == 'flor' and FLOR_CANTO or ENVIDO_CANTO, opener, callType)
     self.aiThinking = false  -- let the responder's think re-arm
-    if opener == 'ai' then self:showAiMessage(CALL_LABEL[callType]) end
+    -- the flor declaration was already announced by enter(); only a real call speaks
+    if opener == 'ai' and callType ~= 'flor' then self:showAiMessage(CALL_LABEL[callType]) end
 end
 
 function TrickState:aiRespondCanto()
@@ -430,12 +495,17 @@ function TrickState:aiRespondCanto()
         -- availableRaises keeps the AI's escalation legal. A raise is announced
         -- here (it pays nothing, so it owns no award) and hands the answer back
         -- to the human; accept/reject go to finishCanto, which does that talking.
-        local resp = EnvidoAiStub.chooseResponse(self.envidoValue.ai,
-            self.canto:availableRaises(), self:aiContext())
+        local raises = self.canto:availableRaises()
+        local resp
+        if self.cantoFamily == 'flor' then
+            resp = FlorAiStub.chooseResponse(self.flor.ai, raises, #self.canto.calls == 1)
+        else
+            resp = EnvidoAiStub.chooseResponse(self.envidoValue.ai, raises, self:aiContext())
+        end
         if resp == 'quiero' then
             self.canto:accept()
             self:finishCanto()
-        elseif resp == 'noquiero' then
+        elseif resp == 'noquiero' or resp == 'meachico' then
             self.canto:reject()
             self:finishCanto()
         else
@@ -484,47 +554,62 @@ function TrickState:award(side, points)
     self.loop:awardPoints(side, points)
 end
 
-function TrickState:awardCanto(outcome)
-    local side, points = envidoAward(outcome, self.mano,
-        self.envidoValue[self.mano], self.envidoValue[other(self.mano)],
+-- The pair of values that ladder is fought over, mano first.
+function TrickState:cantoValues(family)
+    local held = family == 'flor' and self.flor or self.envidoValue
+    return held[self.mano], held[other(self.mano)]
+end
+
+function TrickState:awardCanto(outcome, family)
+    local manoVal, pieVal = self:cantoValues(family)
+    local award = family == 'flor' and florAward or envidoAward
+    local side, points = award(outcome, self.mano, manoVal, pieVal,
         self.loop.humanScore, self.loop.aiScore)
+    if family == 'flor' then self.florResolved = true end
     self:award(side, points)
 end
 
--- Resolve the envido, and do all the announcing: the AI's answer is only ever
--- worth showing here, and it has to be shown BEFORE the payout -- an award can
--- end the chico, which tears this state down and would swallow the message.
--- Accept runs the mano-then-pie showdown; reject has none (per reglamento).
+-- Resolve the negotiation (either ladder), and do all the announcing: the AI's
+-- answer is only ever worth showing here, and it has to be shown BEFORE the
+-- payout -- an award can end the chico, which tears this state down and would
+-- swallow the message. Accept runs the mano-then-pie showdown; a refusal has
+-- none (per reglamento), whether it's "no quiero" or flor's "me achico".
 function TrickState:finishCanto()
     local outcome = self.canto.outcome
     local answerer = self.canto.responder  -- whoever accepted/rejected, raises included
+    local family = self.cantoFamily
     self.canto = nil
+    self.cantoFamily = nil
     self.aiThinking = false
+
+    local function pay() self:awardCanto(outcome, family) end
+    local function reveal(manoPrefix) self:revealShowdown(family, manoPrefix, pay) end
 
     if outcome.kind == 'accept' then
         if answerer == 'ai' and self.mano == 'ai' then
             -- mano declares first, so the AI's quiero rides along on its number
-            self:revealEnvido(outcome, 'Quiero')
+            reveal('Quiero')
         elseif answerer == 'ai' then
             -- AI is pie: quiero now, its number comes with its response below
-            self:showAiMessage('Quiero', function() self:revealEnvido(outcome) end)
+            self:showAiMessage('Quiero', function() reveal() end)
         else
-            self:revealEnvido(outcome)  -- the human clicked Quiero; nothing to announce
+            reveal()  -- the human clicked Quiero; nothing to announce
         end
     elseif answerer == 'ai' then
-        self:showAiMessage('No quiero', function() self:awardCanto(outcome) end)
+        self:showAiMessage(REJECT_LABEL[family], pay)
     else
-        self:awardCanto(outcome)
+        pay()
     end
 end
 
 -- Showdown: mano's number, then pie's ("son mejores" if better, else "son
--- buenas"), each held ~2s; points land after. Input is frozen while dialogs show.
--- manoPrefix (only "Quiero") prepends to the mano's declaration when the same
--- side both accepted and declares first.
-function TrickState:revealEnvido(outcome, manoPrefix)
+-- buenas"), each held ~2s; `onDone` runs after. Input is frozen while dialogs
+-- show. manoPrefix (only "Quiero") prepends to the mano's declaration when the
+-- same side both accepted and declares first. Shared by envido and flor -- the
+-- only difference between them is which pair of values is being compared.
+function TrickState:revealShowdown(family, manoPrefix, onDone)
     local pie = other(self.mano)
-    local manoVal, pieVal = self.envidoValue[self.mano], self.envidoValue[pie]
+    local manoVal, pieVal = self:cantoValues(family)
     local manoText = manoPrefix and (manoPrefix .. ', ' .. manoVal) or tostring(manoVal)
 
     self.dialogs = { self:makeDialog(self.mano, self:speaker(self.mano) .. manoText) }
@@ -534,7 +619,7 @@ function TrickState:revealEnvido(outcome, manoPrefix)
         table.insert(self.dialogs, self:makeDialog(pie, self:speaker(pie) .. pieText))
         Timer.after(2, function()
             self.dialogs = {}
-            self:awardCanto(outcome)
+            onDone()
         end)
     end)
 end
