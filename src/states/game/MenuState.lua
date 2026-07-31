@@ -52,7 +52,7 @@ function MenuState:init()
         end },
     }
     self.selected = 1
-    self.mouseWasDown = false
+    self.mouseWasDown = love.mouse.isDown(1)  -- a button still held from the click that got here is not a new one
     self.note = nil
 end
 

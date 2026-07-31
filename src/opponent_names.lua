@@ -1,14 +1,17 @@
 -- Opponent names (PRD 8 §3). Generic, common Argentine given names and
 -- surnames, combined for variety; nothing tied to an identifiable person.
+-- Written without accents (Tomas, not Tomás): the name widths the bracket and
+-- the dialog boxes are budgeted against are byte counts, and an accented
+-- character is two bytes in UTF-8.
 
 OPPONENT_FIRST_NAMES = {
-    'Facundo', 'Lucas', 'Martín', 'Nicolás', 'Santiago', 'Julián', 'Tomás', 'Agustín',
-    'Ramiro', 'Ignacio', 'Camila', 'Sofía', 'Valentina', 'Martina', 'Julieta', 'Catalina',
+    'Facundo', 'Lucas', 'Martin', 'Nicolas', 'Santiago', 'Julian', 'Tomas', 'Agustin',
+    'Ramiro', 'Ignacio', 'Camila', 'Sofia', 'Valentina', 'Martina', 'Julieta', 'Catalina',
 }
 
 OPPONENT_SURNAMES = {
-    'Gómez', 'Fernández', 'Rodríguez', 'López', 'Díaz', 'Martínez', 'Pérez', 'García',
-    'Sánchez', 'Romero', 'Álvarez', 'Torres', 'Ruiz', 'Flores', 'Acosta', 'Benítez',
+    'Gomez', 'Fernandez', 'Rodriguez', 'Lopez', 'Diaz', 'Martinez', 'Perez', 'Garcia',
+    'Sanchez', 'Romero', 'Alvarez', 'Torres', 'Ruiz', 'Flores', 'Acosta', 'Benitez',
 }
 
 -- The short label used in-match: names are generated with distinct first names,

@@ -18,7 +18,11 @@ local function hand(...)
 end
 
 local BRAVA  = hand('espadas_1', 'copas_5', 'bastos_4')   -- espadas_1 = tier 1
+local BRAVAS = hand('espadas_1', 'bastos_1', 'copas_5')   -- tiers 1 and 2: two bravas
 local NOTHING = hand('copas_5', 'oros_6', 'bastos_4')     -- tiers 13, 12, 14
+
+-- "something has been played" -- a lone brava won't open before that
+local SEEN = { tricksPlayed = 0, cardsPlayed = 1 }
 
 T('TrucoAiStub (truco, PRD 6 §6)', function(t)
     t('position: strong on an unplayed brava or a banked trick', function(t)
@@ -40,11 +44,24 @@ T('TrucoAiStub (truco, PRD 6 §6)', function(t)
     end)
 
     t('calls from strength only', function(t)
-        t:assert(TrucoAiStub.wantsToCall(BRAVA, { tricksPlayed = 0 }) == true, 'brava calls')
-        t:assert(TrucoAiStub.wantsToCall(NOTHING, { tricksPlayed = 0 }) == false,
-            'uncertain does not call')
+        t:assert(TrucoAiStub.wantsToCall(BRAVA, SEEN) == true, 'brava calls')
+        t:assert(TrucoAiStub.wantsToCall(NOTHING, SEEN) == false, 'uncertain does not call')
         t:assert(TrucoAiStub.wantsToCall(NOTHING, { theirWins = 1, tricksPlayed = 1 }) == false,
             'weak does not call')
+    end)
+
+    -- betting before a single card is down reads as trigger-happy; play one and
+    -- see what the other side has first, unless the hand is exceptional
+    t('holds off on the very first move of a hand', function(t)
+        local opening = { tricksPlayed = 0, cardsPlayed = 0 }
+        t:assert(TrucoAiStub.wantsToCall(BRAVA, opening) == false,
+            'one brava is not enough to open before anything is played')
+        t:assert(TrucoAiStub.wantsToCall(BRAVAS, opening) == true,
+            'two bravas will still open the hand with truco')
+        t:assert(TrucoAiStub.wantsToCall(BRAVA, SEEN) == true,
+            'and after a card is down, one brava is enough')
+        t:assert(TrucoAiStub.wantsToCall(BRAVA, { tricksPlayed = 1 }) == true,
+            'likewise from trick 2 on')
     end)
 
     t('responds quiero anywhere but a lost position', function(t)
@@ -53,6 +70,13 @@ T('TrucoAiStub (truco, PRD 6 §6)', function(t)
             'uncertain accepts -- benefit of the doubt this early')
         t:assert(TrucoAiStub.respond(NOTHING, { theirWins = 1, tricksPlayed = 1 }) == 'noquiero',
             'weak declines')
+    end)
+
+    t('answers a call by raising it when very strong', function(t)
+        t:assert(TrucoAiStub.respond(BRAVAS, { tricksPlayed = 0 }) == 'raise',
+            'two bravas: quiero and up, in one move')
+        t:assert(TrucoAiStub.respond(BRAVA, { tricksPlayed = 0 }) == 'quiero',
+            'one brava just accepts')
     end)
 
     t('folds only from a weak position with a stake already accepted', function(t)
@@ -68,14 +92,16 @@ T('TrucoAiStub (truco, PRD 6 §6)', function(t)
         local base = AiConfig.aggression
         local lost = { theirWins = 1, tricksPlayed = 1, trucoLevel = 2 }
 
+        -- SEEN throughout, so this measures the aggression shift and not the
+        -- separate "don't bet before a card is down" rule
         AiConfig.aggression = 1.0
-        t:assert(TrucoAiStub.wantsToCall(NOTHING, { tricksPlayed = 0 }) == true,
+        t:assert(TrucoAiStub.wantsToCall(NOTHING, SEEN) == true,
             'reckless: calls from uncertain')
         t:assert(TrucoAiStub.wantsToFold(NOTHING, lost) == false,
             'reckless: rides out a weak position instead of folding')
 
         AiConfig.aggression = 0.0
-        t:assert(TrucoAiStub.wantsToCall(BRAVA, { tricksPlayed = 0 }) == false,
+        t:assert(TrucoAiStub.wantsToCall(BRAVA, SEEN) == false,
             'timid: a single brava is not enough to call')
         t:assert(TrucoAiStub.respond(NOTHING, { tricksPlayed = 0 }) == 'noquiero',
             'timid: declines from uncertain')

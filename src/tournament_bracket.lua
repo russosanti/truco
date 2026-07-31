@@ -27,6 +27,17 @@ function buildBracket(humanName, aiNames)
     return { humanName = humanName, round = 1, rounds = { pairings } }
 end
 
+-- Who won round r's match m, or nil while that round is still undecided. The
+-- result isn't stored: round r's match m feeds round r+1's slot ceil(m/2),
+-- ((m-1)%2)+1, so whoever sits there won and the other entrant lost. Nothing is
+-- knowable before advanceRound has actually produced the next round.
+function matchWinner(bracket, r, m)
+    local nextRound = bracket.rounds[r + 1]
+    if not nextRound then return nil end
+    local pair = nextRound[math.ceil(m / 2)]
+    return pair and pair[(m - 1) % 2 + 1]
+end
+
 -- The name facing the human this round, or nil once they're out of the bracket.
 function humanOpponent(bracket)
     for _, pair in ipairs(bracket.rounds[bracket.round]) do

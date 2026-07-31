@@ -41,7 +41,7 @@ function TrickState:init(loop)
     self.tricksPlayed = 0
     self.aiName = firstNameOf(loop.aiName or 'AI')  -- short form: the HUD and boxes are tight
     self.firstTrickWinner = nil  -- decides a 1-1 hand ending in a parda; nil if trick 1 tied
-    self.mouseWasDown = false  -- for left-click edge detection
+    self.mouseWasDown = love.mouse.isDown(1)  -- left-click edge detection; a button already held is not a fresh press
     self.envidoUsed = false    -- an envido negotiation has already happened this hand
     self.canto = nil           -- active envido negotiation, or nil
     self.dialogs = {}          -- list of {text, panel} message boxes on screen
@@ -244,6 +244,11 @@ function TrickState:callButtons()
 
     elseif self.trucoPending and other(self.trucoPending.caller) == 'human' then
         list = { { label = 'Quiero', act = 'accept' }, { label = 'No quiero', act = 'reject' } }
+        -- raising IS the answer: no need to accept and then wait for a turn
+        local raise = trucoRaiseCall(self.trucoPending)
+        if raise then
+            list[#list + 1] = { label = TRUCO_NAME[raise], act = 'truco-raise' }
+        end
         -- "el envido esta primero": any envido variant may answer a truco, and
         -- doing so discards the truco -- play just resumes once the envido ends
         if self:canInterruptEnvido() then
@@ -298,6 +303,8 @@ function TrickState:applyCallButton(act)
     elseif act == 'reject' then
         if self.canto then self.canto:reject(); self:finishCanto()
         else self:resolveTrucoReject() end
+    elseif act == 'truco-raise' then
+        self:resolveTrucoRaise('human')
     elseif act == 'truco' then
         self:callTruco('human')
     elseif act == 'fold' then
@@ -332,6 +339,19 @@ function TrickState:resolveTrucoAccept()
     self.aiThinking = false
 end
 
+-- Answering with the next level up: the pending call is accepted (so it banks as
+-- the stake) and the raise goes straight back to whoever called it. Play resumes
+-- from wherever it was -- no card is owed in between.
+function TrickState:resolveTrucoRaise(side)
+    local p = self.trucoPending
+    local lvl = trucoRaiseCall(p)
+    if not lvl then return end
+    self.trucoLevel = p.level    -- what raising just said quiero to
+    self.trucoLeader = side
+    self.trucoPending = { level = lvl, caller = side }
+    self.aiThinking = false      -- let the other side's think re-arm
+end
+
 function TrickState:resolveTrucoReject()
     local p = self.trucoPending
     self.trucoPending = nil
@@ -350,6 +370,7 @@ function TrickState:aiContext()
         myWins = self.wins.ai,
         theirWins = self.wins.human,
         tricksPlayed = self.tricksPlayed,
+        cardsPlayed = self.playCount,     -- this trick only; with tricksPlayed it says "has anything been seen"
         trucoLevel = self.trucoLevel,
         myScore = self.loop.aiScore,
         theirScore = self.loop.humanScore,
@@ -372,7 +393,12 @@ function TrickState:aiRespondTruco()
             return
         end
         local p = self.trucoPending
-        if TrucoAiStub.respond(self.loop.aiHand, ctx) == 'quiero' then
+        local resp = TrucoAiStub.respond(self.loop.aiHand, ctx)
+        local raiseTo = trucoRaiseCall(p)
+        if resp == 'raise' and raiseTo then
+            self:resolveTrucoRaise('ai')
+            self:showAiMessage(TRUCO_NAME[raiseTo])
+        elseif resp ~= 'noquiero' then
             self:resolveTrucoAccept()
             self:showAiMessage('Quiero')
         else

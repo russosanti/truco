@@ -43,7 +43,7 @@ T('opponent_names', function(t)
     end)
 
     t('firstNameOf takes the given name only', function(t)
-        t:assert(firstNameOf('Valentina Rodríguez') == 'Valentina', 'splits on the space')
+        t:assert(firstNameOf('Valentina Rodriguez') == 'Valentina', 'splits on the space')
         t:assert(firstNameOf('You') == 'You', 'a bare name is left alone')
     end)
 end)

@@ -114,6 +114,46 @@ T('tournament_bracket', function(t)
         t:assert(bracket.round == 4, 'four rounds to the Final')
     end)
 
+    t('matchWinner reads a decided round, and nothing before it', function(t)
+        math.randomseed(11)
+        local bracket = buildBracket('You', generateNames(15))
+
+        for m = 1, 8 do
+            t:assert(matchWinner(bracket, 1, m) == nil, 'round 1 is undecided while it is being played')
+        end
+
+        advanceRound(bracket, true)
+        for m, pair in ipairs(bracket.rounds[1]) do
+            local w = matchWinner(bracket, 1, m)
+            t:assert(w == pair[1] or w == pair[2], 'the winner is one of the entrants')
+            t:assert(contains(bracket.rounds[2], w) == 1, 'and it is who advanced')
+        end
+        for m = 1, 4 do
+            t:assert(matchWinner(bracket, 2, m) == nil, 'round 2 has not been played yet')
+        end
+    end)
+
+    t('matchWinner agrees with the human result either way', function(t)
+        math.randomseed(12)
+        local won = buildBracket('You', generateNames(15))
+        local wonIndex
+        for m, pair in ipairs(won.rounds[1]) do
+            if pair[1] == 'You' or pair[2] == 'You' then wonIndex = m end
+        end
+        advanceRound(won, true)
+        t:assert(matchWinner(won, 1, wonIndex) == 'You', 'a won match reads as the human')
+
+        math.randomseed(12)
+        local lost = buildBracket('You', generateNames(15))
+        local lostIndex, beat
+        for m, pair in ipairs(lost.rounds[1]) do
+            if pair[1] == 'You' then lostIndex, beat = m, pair[2] end
+            if pair[2] == 'You' then lostIndex, beat = m, pair[1] end
+        end
+        advanceRound(lost, false)
+        t:assert(matchWinner(lost, 1, lostIndex) == beat, 'a lost match reads as the opponent')
+    end)
+
     t('advanceRound with nil resolves the human-less bracket by coin flip', function(t)
         math.randomseed(10)
         local bracket = buildBracket('You', generateNames(15))
