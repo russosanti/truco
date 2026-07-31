@@ -32,6 +32,7 @@ function ChicoScoreState:render()
     -- who took the chico before a decided partida jumps to MatchEndState
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setFont(gFonts['medium'])
-    local who = self.winner == 'human' and 'You win the chico!' or 'AI wins the chico'
+    local who = self.winner == 'human' and 'You win the chico!'
+        or (firstNameOf(self.loop.aiName or 'AI') .. ' wins the chico')
     love.graphics.printf(who, 0, VIRTUAL_HEIGHT / 2 - 8, VIRTUAL_WIDTH, 'center')
 end

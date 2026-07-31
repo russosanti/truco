@@ -59,9 +59,12 @@ function drawHud(loop, status)
     if loop.matchFormat == 'best_of_3' then
         love.graphics.print('chicos ' .. loop.chicosWon.human .. ' - ' .. loop.chicosWon.ai, 4, 12)
     end
-    love.graphics.printf('You ' .. loop.humanScore .. '  -  ' .. loop.aiScore .. ' AI',
+    -- short form of the opponent's name: this line and the mano label are tight
+    local them = firstNameOf(loop.aiName or 'AI')
+    love.graphics.printf('You ' .. loop.humanScore .. '  -  ' .. loop.aiScore .. ' ' .. them,
         0, 2, VIRTUAL_WIDTH - 4, 'right')
-    love.graphics.printf('mano: ' .. tostring(loop.mano), 0, 12, VIRTUAL_WIDTH - 4, 'right')
+    love.graphics.printf('mano: ' .. (loop.mano == 'human' and 'You' or them),
+        0, 12, VIRTUAL_WIDTH - 4, 'right')
     if status then
         love.graphics.printf(status, 0, VIRTUAL_HEIGHT - 12, VIRTUAL_WIDTH, 'center')
     end

@@ -38,15 +38,18 @@ local function has(list, callType)
     return false
 end
 
+-- Opening is nearly always a plain Envido -- that's how the call is actually
+-- made, and the escalation happens in chooseResponse when the other side answers.
+-- Real envido only comes out of a genuinely big hand (or a bluffed-up one).
 function EnvidoAiStub.chooseOpen(value, ctx)
     ctx = ctx or {}
     local tier = bluffed(value)
     if tier == 'weak' then return 'pass' end
-    if tier == 'decent' then return 'envido' end
-    if tier == 'strong' then return 'real' end
-    -- exceptional: falta on sight when it would close the chico, else either
+    if tier == 'decent' or tier == 'strong' then return 'envido' end
+    -- exceptional: falta on sight when it would close the chico, else it either
+    -- opens big or hides the hand behind a plain envido
     if wantsFalta(ctx) then return 'falta' end
-    return AiConfig.coin() and 'falta' or 'real'
+    return AiConfig.coin() and 'real' or 'envido'
 end
 
 -- `raises` is the canto's availableRaises(), so only a legal escalation can be

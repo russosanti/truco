@@ -10,12 +10,20 @@ function MatchEndState:init(winner, loop)
     self.chicosWon = { human = loop.chicosWon.human, ai = loop.chicosWon.ai }
     self.humanScore = loop.humanScore
     self.aiScore = loop.aiScore
+    self.aiName = loop.aiName or 'AI'
+    -- whoever launched the match wants the result back (the tournament); with
+    -- nobody waiting, a standalone match just returns to the menu
+    self.onReturn = loop.onMatchEnd
 end
 
 function MatchEndState:update(dt)
     if love.keyboard.wasPressed('return') then
         gStateStack:pop()
-        gStateStack:push(MenuState())
+        if self.onReturn then
+            self.onReturn(self.winner == 'human')
+        else
+            gStateStack:push(MenuState())
+        end
     end
 end
 
@@ -24,7 +32,8 @@ function MatchEndState:render()
     love.graphics.setColor(1, 1, 1, 1)
 
     love.graphics.setFont(gFonts['large'])
-    local title = self.winner == 'human' and 'You win the partida!' or 'AI wins the partida'
+    local title = self.winner == 'human' and 'You win the partida!'
+        or (self.aiName .. ' wins the partida')
     love.graphics.printf(title, 0, VIRTUAL_HEIGHT / 2 - 55, VIRTUAL_WIDTH, 'center')
 
     -- a best-of-3 is told by chicos; a single chico only ever had the one score

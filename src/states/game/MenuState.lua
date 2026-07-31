@@ -43,21 +43,24 @@ function MenuState:init()
         self.cards[#self.cards + 1] = p
     end
 
-    -- Adding the tournament later is swapping that entry's action for a push;
-    -- it is listed now but marked unavailable rather than silently doing nothing.
     self.items = {
         { label = 'Play Match', action = function() self:startMatch('best_of_3') end },
         { label = 'Quick Chico', action = function() self:startMatch('single_chico') end },
-        { label = 'Tournament', disabled = true },
+        { label = 'Tournament', action = function()
+            gStateStack:pop()
+            gStateStack:push(TournamentState())
+        end },
     }
     self.selected = 1
-    self.mouseWasDown = false
+    self.mouseWasDown = love.mouse.isDown(1)  -- a button still held from the click that got here is not a new one
     self.note = nil
 end
 
+-- A standalone match still gets a named opponent; nothing to avoid repeating
+-- here, unlike a tournament's 15.
 function MenuState:startMatch(matchFormat)
     gStateStack:pop()
-    gStateStack:push(HandLoopState(matchFormat))
+    gStateStack:push(HandLoopState { matchFormat = matchFormat, aiName = randomName({}) })
 end
 
 function MenuState:itemRect(i)

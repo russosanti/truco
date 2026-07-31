@@ -35,16 +35,31 @@ local function effective(hand, ctx)
     return AiConfig.shiftTier(POSITIONS, pos, AiConfig.bluffDelta())
 end
 
--- Open or raise from strength only. (Raising needs no special case: once
--- resolveTrucoAccept makes the AI the trucoLeader, availableTrucoCall offers
--- the next level on its turn and updateAiTurn's truco branch takes it.)
+-- Two or more bravas: strong enough to escalate rather than merely accept.
+local function veryStrong(hand, ctx)
+    return bravas(hand) >= 2 or (ctx or {}).myWins and ctx.myWins >= 2
+end
+
+-- Open or raise from strength only -- and not on the very first move of a hand
+-- unless the cards are exceptional: normally you play one and see what the other
+-- side has before betting. (Raising on a later turn needs no special case: once
+-- resolveTrucoAccept makes the AI the trucoLeader, availableTrucoCall offers the
+-- next level and updateAiTurn's truco branch takes it.)
 function TrucoAiStub.wantsToCall(hand, ctx)
+    ctx = ctx or {}
+    local nothingSeen = (ctx.tricksPlayed or 0) == 0 and (ctx.cardsPlayed or 0) == 0
+    if nothingSeen and not veryStrong(hand, ctx) then return false end
     return effective(hand, ctx) == 'strong'
 end
 
--- Benefit of the doubt anywhere but a plainly lost position.
+-- Benefit of the doubt anywhere but a plainly lost position -- and from a very
+-- strong one, answer by raising instead ('quiero, and up'). The caller checks
+-- the raise is legal; at Vale cuatro this reads as a plain quiero.
 function TrucoAiStub.respond(hand, ctx)
-    return effective(hand, ctx) ~= 'weak' and 'quiero' or 'noquiero'
+    local pos = effective(hand, ctx)
+    if pos == 'weak' then return 'noquiero' end
+    if pos == 'strong' and veryStrong(hand, ctx) then return 'raise' end
+    return 'quiero'
 end
 
 -- Only worth folding once a stake is actually accepted -- it caps the loss at

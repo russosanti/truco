@@ -3,6 +3,13 @@
 require 'src.truco_rules'
 
 T('truco_rules', function(t)
+    t('trucoRaiseCall: answering with the next level, capped at Vale cuatro', function(t)
+        t:assert(trucoRaiseCall({ level = 2 }) == 3, 'Truco can be answered with Retruco')
+        t:assert(trucoRaiseCall({ level = 3 }) == 4, 'Retruco with Vale cuatro')
+        t:assert(trucoRaiseCall({ level = 4 }) == nil, 'nothing is above Vale cuatro')
+        t:assert(trucoRaiseCall(nil) == nil, 'nothing pending, nothing to raise')
+    end)
+
     t('reject value = previous level (§7)', function(t)
         t:assert(trucoRejectValue(2) == 1, 'Truco rejected -> 1')
         t:assert(trucoRejectValue(3) == 2, 'Retruco rejected -> 2')
