@@ -1,10 +1,6 @@
 --[[
-    CS50 2D
     Truco Argentino
-
-    A Menu is simply a Selection layered onto a Panel, at least for use in this
-    game. More complicated Menus may be collections of Panels and Selections that
-    form a greater whole.
+    A Menu is simply a Selection layered onto a Panel.
 ]]
 
 Menu = Class{}

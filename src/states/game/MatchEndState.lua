@@ -18,12 +18,14 @@ end
 
 function MatchEndState:update(dt)
     if love.keyboard.wasPressed('return') then
-        gStateStack:pop()
-        if self.onReturn then
-            self.onReturn(self.winner == 'player')
-        else
-            gStateStack:push(MenuState())
-        end
+        transition(function()
+            gStateStack:pop()
+            if self.onReturn then
+                self.onReturn(self.winner == 'player')
+            else
+                gStateStack:push(MenuState())
+            end
+        end)
     end
 end
 

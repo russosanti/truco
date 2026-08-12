@@ -17,6 +17,7 @@ require 'src.states.StateStack'
 
 require 'src.states.game.FadeInState'
 require 'src.states.game.FadeOutState'
+require 'src.transition'
 require 'src.states.game.MenuState'
 require 'src.states.game.TournamentState'
 

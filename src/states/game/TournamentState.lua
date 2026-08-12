@@ -26,11 +26,13 @@ function TournamentState:startMatch()
     if not opponent then
         return
     end
-    gStateStack:push(HandLoopState {
-        matchFormat = TOURNAMENT_ROUND_FORMAT[self:round()],
-        aiName = opponent,
-        onMatchEnd = function(playerWon) self:matchFinished(playerWon) end,
-    })
+    transition(function()
+        gStateStack:push(HandLoopState {
+            matchFormat = TOURNAMENT_ROUND_FORMAT[self:round()],
+            aiName = opponent,
+            onMatchEnd = function(playerWon) self:matchFinished(playerWon) end,
+        })
+    end)
 end
 
 -- Called by MatchEndState once the player dismisses the result
@@ -55,8 +57,10 @@ function TournamentState:update(dt)
         elseif self.phase == 'matchup' then
             self:startMatch()
         else
-            gStateStack:pop()
-            gStateStack:push(MenuState())
+            transition(function()
+                gStateStack:pop()
+                gStateStack:push(MenuState())
+            end)
         end
     end
 end

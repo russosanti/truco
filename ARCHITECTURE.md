@@ -47,6 +47,17 @@ MenuState ──▶ HandLoopState ──▶ MatchEndState ──▶ MenuState
 the stack underneath so the bracket survives. That's safe because every phase
 state opens with `love.graphics.clear`, so the match paints over it.
 
+Every arrow above is a **fade**, via `transition(fn)` in `src/transition.lua`: it
+pushes `FadeInState` to cover the screen in black, runs `fn` (the original
+push/pop, unchanged), then pushes `FadeOutState` to reveal. Two properties of the
+stack make this work without any coordination — the fade renders over what's
+beneath it because rendering is bottom-to-top, and the state beneath is frozen
+and deaf while the fade is on top because only the top state updates, so a held
+key or mouse button can't activate anything twice mid-transition. Note the
+inherited names describe the *overlay*, not the scene: `FadeInState` fades the
+black rect **in**, so it is the departure. Call sites never say so — they only
+say `transition`.
+
 **`StateMachine`** — phases *inside* one match, owned by `HandLoopState`:
 
 ```
@@ -68,7 +79,7 @@ All three are optional — a bare `HandLoopState()` is a standalone best-of-3 vs
 
 ---
 
-## 3. `TrickState` — the one big file (738 lines)
+## 3. `TrickState` — the one big file (677 lines)
 
 Everything that happens *during* a hand lives here: flor, envido, truco, the
 call buttons, the card picker, the table rendering. It is by far the largest
@@ -244,37 +255,41 @@ disagree, check which one is wrong — several times it was the test.
 ### Pure rules & model
 | File | Lines | Exports |
 |---|---|---|
-| `card_defs.lua` | 58 | rank/suit tables, `trickTierFor`, `envidoValueFor` |
+| `card_defs.lua` | 48 | rank/suit tables, `trickTierFor`, `envidoValueFor` |
 | `Card.lua` | 44 | `Card`, `Card.compareTrick` |
-| `Deck.lua` | 60 | `Deck` (build/shuffle/deal/reset) |
+| `Deck.lua` | 56 | `Deck` (build/shuffle/deal/reset) |
 | `trick_rules.lua` | 56 | `resolveTrick`, `nextLeader`, `isHandDecided` |
-| `envido_rules.lua` | 44 | `envidoValue`, `envidoWinner`, `rejectValue`, `faltaEnvidoValue` |
+| `envido_rules.lua` | 38 | `envidoValue`, `envidoWinner`, `rejectValue`, `faltaEnvidoValue` |
 | `truco_rules.lua` | 32 | `trucoRejectValue`, `trucoFoldValue`, `trucoRaiseCall`, `availableTrucoCall` |
-| `flor_rules.lua` | 26 | `hasFlor`, `florValue`, `florWinner` |
-| `match_rules.lua` | 24 | `chicoWinner`, `chicosNeeded`, `partidaWinner` |
+| `flor_rules.lua` | 24 | `hasFlor`, `florValue`, `florWinner` |
+| `match_rules.lua` | 21 | `chicoWinner`, `chicosNeeded`, `partidaWinner` |
 | `canto.lua` | 58 | `Canto` — the shared call engine |
 | `envido_canto.lua` | 40 | `ENVIDO_CANTO`, `envidoAward` |
 | `flor_canto.lua` | 38 | `FLOR_CANTO`, `florAward` |
-| `tournament_bracket.lua` | 75 | `buildBracket`, `advanceRound`, `matchWinner`, `playerOpponent` |
-| `opponent_names.lua` | 63 | `randomName`, `generateNames`, `firstNameOf` |
-| `ai_config.lua` | 38 | `AiConfig` + `chance`/`coin`/`bluffDelta`/`shiftTier` |
+| `tournament_bracket.lua` | 67 | `buildBracket`, `advanceRound`, `matchWinner`, `playerOpponent` |
+| `opponent_names.lua` | 54 | `randomName`, `generateNames`, `firstNameOf` |
+| `ai_config.lua` | 49 | `AiConfig` + `chance`/`coin`/`bluffDelta`/`shiftTier` |
 | `AiStub.lua` | 59 | `chooseCard` |
-| `EnvidoAiStub.lua` | 71 | `tier`, `chooseOpen`, `chooseResponse` |
+| `EnvidoAiStub.lua` | 64 | `tier`, `chooseOpen`, `chooseResponse` |
 | `TrucoAiStub.lua` | 70 | `position`, `wantsToCall`, `respond`, `wantsToFold` |
-| `FlorAiStub.lua` | 45 | `tier`, `chooseResponse` |
+| `FlorAiStub.lua` | 38 | `tier`, `chooseResponse` |
 
 ### States & presentation
 | File | Lines | Role |
 |---|---|---|
-| `TrickState.lua` | 738 | the whole hand: calls, tricks, input, table render |
-| `TournamentState.lua` | 202 | bracket tree, matchup screen, round advancement |
-| `MenuState.lua` | 141 | title screen, falling-cards backdrop, menu |
-| `HandLoopState.lua` | 93 | match spine: scores, chicos, phase machine, `awardPoints` |
-| `MatchEndState.lua` | 52 | result screen; routes back to menu or tournament |
-| `ChicoScoreState.lua` | 38 | chico banner, then next chico or match end |
-| `HandScoreState.lua` | 32 | hand banner, then rotate dealer and deal |
-| `DealState.lua` | 25 | deal 3+3, set mano |
-| `table_render.lua` | 71 | shared drawing helpers |
+| `TrickState.lua` | 677 | the whole hand: calls, tricks, input, table render |
+| `TournamentState.lua` | 186 | bracket tree, matchup screen, round advancement |
+| `MenuState.lua` | 135 | title screen, falling-cards backdrop, menu |
+| `HandLoopState.lua` | 78 | match spine: scores, chicos, phase machine, `awardPoints` |
+| `MatchEndState.lua` | 54 | result screen; routes back to menu or tournament |
+| `ChicoScoreState.lua` | 34 | chico banner, then next chico or match end |
+| `HandScoreState.lua` | 28 | hand banner, then rotate dealer and deal |
+| `DealState.lua` | 24 | deal 3+3, set mano |
+| `FadeOutState.lua` | 35 | overlay that reveals a scene (opacity 1 → 0) |
+| `FadeInState.lua` | 31 | overlay that covers a scene (opacity 0 → 1) |
+| `table_render.lua` | 78 | shared drawing helpers |
+| `transition.lua` | 9 | `transition(fn)` — cover, swap states, reveal |
+| `sides.lua` | 3 | `otherSide` |
 
 ---
 
@@ -296,7 +311,7 @@ disagree, check which one is wrong — several times it was the test.
 
 ## 11. Known rough edges
 
-- **`TrickState` is 738 lines.** The obvious refactor: lift the call UI
+- **`TrickState` is 677 lines.** The obvious refactor: lift the call UI
   (`callButtons` / `applyCallButton` / the canto plumbing) into its own module.
 - **`*Stub` filenames** no longer describe their contents (see §5).
 - **`src/gui/Menu`, `ProgressBar`, `Selection`, `Textbox`** are vendored and

@@ -41,8 +41,10 @@ function MenuState:init()
         { label = 'Play Match', action = function() self:startMatch('best_of_3') end },
         { label = 'Quick Chico', action = function() self:startMatch('single_chico') end },
         { label = 'Tournament', action = function()
-            gStateStack:pop()
-            gStateStack:push(TournamentState())
+            transition(function()
+                gStateStack:pop()
+                gStateStack:push(TournamentState())
+            end)
         end },
     }
     self.selected = 1
@@ -52,8 +54,10 @@ end
 
 -- Start a match with random opponent
 function MenuState:startMatch(matchFormat)
-    gStateStack:pop()
-    gStateStack:push(HandLoopState { matchFormat = matchFormat, aiName = randomName({}) })
+    transition(function()
+        gStateStack:pop()
+        gStateStack:push(HandLoopState { matchFormat = matchFormat, aiName = randomName({}) })
+    end)
 end
 
 function MenuState:itemRect(i)
