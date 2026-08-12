@@ -22,8 +22,8 @@ FLOR_CANTO = {
 
 -- Resolve a flor outcome to (side, points). Values are snapshotted at deal like
 -- envido's, and a rejected call ("con flor me achico") pays the rung below.
-function florAward(outcome, mano, manoValue, pieValue, humanScore, aiScore)
-    local other = mano == 'human' and 'ai' or 'human'
+function florAward(outcome, mano, manoValue, pieValue, playerScore, aiScore)
+    local other = otherSide(mano)
 
     if outcome.kind == 'reject' then
         return outcome.caller, outcome.ceiling and FLOR_CONTRA or FLOR_BASE
@@ -32,7 +32,7 @@ function florAward(outcome, mano, manoValue, pieValue, humanScore, aiScore)
     local winnerSide = florWinner(manoValue, pieValue) == 'mano' and mano or other
     -- al resto pays the falta plus the two declared flores (3 each)
     local points = outcome.ceiling
-        and (faltaEnvidoValue(humanScore, aiScore, winnerSide) + 2 * FLOR_BASE)
+        and (faltaEnvidoValue(playerScore, aiScore, winnerSide) + 2 * FLOR_BASE)
         or outcome.lastCallValue
     return winnerSide, points
 end

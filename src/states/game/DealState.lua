@@ -1,5 +1,4 @@
--- Deals a fresh hand, then hands off to the first trick (envido/truco calling
--- both live in TrickState now).
+-- Deals a fresh hand
 
 DealState = Class{__includes = BaseState}
 
@@ -10,16 +9,16 @@ end
 function DealState:enter()
     local loop = self.loop
     loop.deck:reset()
-    loop.humanHand = loop.deck:deal(3)
+    loop.playerHand = loop.deck:deal(3)
     loop.aiHand = loop.deck:deal(3)
 
-    -- mano is whoever is NOT dealing this hand; leads the first trick
-    loop.mano = loop.dealer == 'human' and 'ai' or 'human'
+    -- mano is whoever is NOT dealing this hand
+    loop.mano = otherSide(loop.dealer)
 
     Timer.after(0.5, function() loop:changePhase('trick') end)
 end
 
 function DealState:render()
-    love.graphics.clear(24/255, 89/255, 53/255, 1)
+    clearBackground()
     drawHud(self.loop, 'Dealing...')
 end

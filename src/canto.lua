@@ -31,7 +31,7 @@ function Canto:pushCall(side, callType)
         self.cumulative = self.cumulative + self.config.value[callType]
         self.lastCallValue = self.config.value[callType]
     end
-    self.responder = side == 'human' and 'ai' or 'human'
+    self.responder = otherSide(side)
 end
 
 -- What the current responder may raise to (empty once a ceiling is on the table).

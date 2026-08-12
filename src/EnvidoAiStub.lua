@@ -22,20 +22,13 @@ function EnvidoAiStub.tier(value, aggression)
 end
 
 local function bluffed(value)
-    return AiConfig.shiftTier(TIERS, EnvidoAiStub.tier(value), AiConfig.bluffDelta())
+    return AiConfig.bluffTier(TIERS, EnvidoAiStub.tier(value))
 end
 
 -- Falta is the killer call: leading and into "buenas", faltaEnvidoValue pays
 -- 30 - leader, so winning it closes the chico outright. Worth forcing there.
 local function wantsFalta(ctx)
     return (ctx.myScore or 0) > 15 and (ctx.myScore or 0) > (ctx.theirScore or 0)
-end
-
-local function has(list, callType)
-    for _, c in ipairs(list or {}) do
-        if c == callType then return true end
-    end
-    return false
 end
 
 -- Opening is nearly always a plain Envido -- that's how the call is actually
@@ -61,11 +54,11 @@ function EnvidoAiStub.chooseResponse(value, raises, ctx)
     if tier == 'weak' then return 'noquiero' end
     if tier == 'decent' then return 'quiero' end
 
-    if tier == 'exceptional' and has(raises, 'falta')
+    if tier == 'exceptional' and AiConfig.contains(raises, 'falta')
        and (wantsFalta(ctx) or AiConfig.coin()) then
         return 'falta'
     end
-    if has(raises, 'real') then return 'real' end
-    if tier == 'exceptional' and has(raises, 'falta') then return 'falta' end
+    if AiConfig.contains(raises, 'real') then return 'real' end
+    if tier == 'exceptional' and AiConfig.contains(raises, 'falta') then return 'falta' end
     return 'quiero'
 end

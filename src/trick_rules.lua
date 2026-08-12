@@ -20,7 +20,7 @@ function nextLeader(trickResult, currentLeader, mano)
     elseif trickResult == 'leader' then
         return currentLeader
     else
-        return currentLeader == 'human' and 'ai' or 'human'
+        return otherSide(currentLeader)
     end
 end
 
@@ -33,15 +33,15 @@ end
 -- trick takes the hand, and mano takes it only when all three are pardas. The
 -- branches below are that rule, ordered by when it becomes knowable.
 function isHandDecided(wins, firstTrickWinner, tricksPlayed, mano)
-    if wins.human >= 2 then return 'human' end   -- swept or won two clean tricks
+    if wins.player >= 2 then return 'player' end   -- swept or won two clean tricks
     if wins.ai >= 2 then return 'ai' end
 
-    local pardas = tricksPlayed - wins.human - wins.ai
+    local pardas = tricksPlayed - wins.player - wins.ai
 
     -- A parda plus a lead on clean wins locks the hand: 1 win + 1 tie takes
     -- it, whichever order they came in ("tie then win", "win then tie").
-    if pardas >= 1 and wins.human ~= wins.ai then
-        return wins.human > wins.ai and 'human' or 'ai'
+    if pardas >= 1 and wins.player ~= wins.ai then
+        return wins.player > wins.ai and 'player' or 'ai'
     end
 
     -- Three tricks, still level. Either 1-1 with the third a parda -- the parda

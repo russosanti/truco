@@ -1,19 +1,16 @@
 -- Title screen: the 40-card falling backdrop plus the match menu.
--- The falling layer is decoration only -- nothing in the hand loop reads it.
 
 MenuState = Class{__includes = BaseState}
 
-local FALL_ALPHA = 0.6              -- backdrop, not competition for the title
-local SPEED_MIN, SPEED_MAX = 20, 50 -- px/s: a 4-13s fall, calm rather than frantic
-local SPIN = math.rad(25)           -- max tumble, rad/s
+local FALL_ALPHA = 0.6              -- backdrop alpha
+local SPEED_MIN, SPEED_MAX = 20, 50 -- fall card speed range
+local SPIN = math.rad(25)           -- fall card spin
 
 local ITEM_W, ITEM_H, ITEM_GAP = 120, 18, 4
 local ITEM_X = (VIRTUAL_WIDTH - ITEM_W) / 2
 local ITEM_Y0 = 118
 
--- Text with a dark drop shadow. The unbacked lines sit straight on the falling
--- cards -- whose art is near-white -- so plain white text loses contrast over
--- roughly a third of the title band. The menu entries have their own backing.
+-- Title with a dark drop shadow
 local function printShadowed(text, y, alpha)
     love.graphics.setColor(0, 0, 0, (alpha or 1) * 0.8)
     love.graphics.printf(text, 1, y + 1, VIRTUAL_WIDTH, 'center')
@@ -21,9 +18,7 @@ local function printShadowed(text, y, alpha)
     love.graphics.printf(text, 0, y, VIRTUAL_WIDTH, 'center')
 end
 
--- Above the top edge by a random margin, with fresh drift. Used both to seed
--- the field and to wrap: respawning at a *spread* of heights (not exactly at
--- the top) is what keeps the stream irregular instead of falling into waves.
+-- Respawn a falling card at a random margin
 local function respawn(p)
     p.x = math.random(-CARD_W, VIRTUAL_WIDTH)
     p.y = -CARD_H - math.random(0, VIRTUAL_HEIGHT)
@@ -32,13 +27,12 @@ local function respawn(p)
 end
 
 function MenuState:init()
-    -- one particle per unique card; Deck already enumerates exactly those 40
+    -- one particle per unique card
     self.cards = {}
     for _, card in ipairs(Deck().cards) do
         local p = { card = card, rot = math.random() * math.pi * 2 }
         respawn(p)
-        -- seed spread over a band well above the screen too, so the field is
-        -- mid-fall on load and only about half of it is on screen at a time
+        -- seed spread over a band well above the screen to avoid rendering mid screen
         p.y = math.random(-VIRTUAL_HEIGHT, VIRTUAL_HEIGHT)
         self.cards[#self.cards + 1] = p
     end
@@ -52,12 +46,11 @@ function MenuState:init()
         end },
     }
     self.selected = 1
-    self.mouseWasDown = love.mouse.isDown(1)  -- a button still held from the click that got here is not a new one
+    self.mouseWasDown = love.mouse.isDown(1)
     self.note = nil
 end
 
--- A standalone match still gets a named opponent; nothing to avoid repeating
--- here, unlike a tournament's 15.
+-- Start a match with random opponent
 function MenuState:startMatch(matchFormat)
     gStateStack:pop()
     gStateStack:push(HandLoopState { matchFormat = matchFormat, aiName = randomName({}) })
@@ -80,14 +73,11 @@ function MenuState:update(dt)
     for _, p in ipairs(self.cards) do
         p.y = p.y + p.speed * dt
         p.rot = p.rot + p.rotSpeed * dt
-        -- y is the top-left, so the card is fully past the bottom edge here;
-        -- it comes back in from above rather than popping in mid-screen
+        -- y is the top-left, so the card is fully past the bottom edge
         if p.y > VIRTUAL_HEIGHT then respawn(p) end
     end
 
-    local mouseDown = love.mouse.isDown(1)
-    local clicked = mouseDown and not self.mouseWasDown
-    self.mouseWasDown = mouseDown
+    local clicked = consumeClick(self)
 
     -- hovering moves the highlight, so mouse and keyboard share one selection
     local mx, my = push.toGame(love.mouse.getPosition())
@@ -112,7 +102,7 @@ function MenuState:update(dt)
 end
 
 function MenuState:render()
-    love.graphics.clear(24/255, 89/255, 53/255, 1)
+    clearBackground()
 
     -- backdrop first, so the title and menu sit on top of it
     for _, p in ipairs(self.cards) do

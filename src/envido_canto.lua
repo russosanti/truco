@@ -21,8 +21,8 @@ ENVIDO_CANTO = {
 -- Resolve a Canto outcome to the side that scores and how much. Envido values
 -- are passed in (snapshotted at hand start, since a card may already be on the
 -- table by the time the pie calls envido).
-function envidoAward(outcome, mano, manoValue, pieValue, humanScore, aiScore)
-    local other = mano == 'human' and 'ai' or 'human'
+function envidoAward(outcome, mano, manoValue, pieValue, playerScore, aiScore)
+    local other = otherSide(mano)
 
     if outcome.kind == 'reject' then
         -- last caller wins the pre-call pot; a rejected ceiling still pays it (floored at 1)
@@ -34,7 +34,7 @@ function envidoAward(outcome, mano, manoValue, pieValue, humanScore, aiScore)
     -- accept: compare envido values (ties to mano)
     local winnerSide = envidoWinner(manoValue, pieValue) == 'mano' and mano or other
     local points = outcome.ceiling
-        and faltaEnvidoValue(humanScore, aiScore, winnerSide)
+        and faltaEnvidoValue(playerScore, aiScore, winnerSide)
         or outcome.cumulative
     return winnerSide, points
 end

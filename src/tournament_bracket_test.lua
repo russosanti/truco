@@ -23,7 +23,7 @@ T('tournament_bracket', function(t)
         t:assert(TOURNAMENT_ROUND_FORMAT[4] == 'best_of_3', 'the Final is a best-of-3')
     end)
 
-    t('buildBracket: 8 pairings over 16 distinct slots, human placed once', function(t)
+    t('buildBracket: 8 pairings over 16 distinct slots, player placed once', function(t)
         math.randomseed(1)
         for _ = 1, 100 do
             local bracket = buildBracket('You', generateNames(15))
@@ -41,11 +41,11 @@ T('tournament_bracket', function(t)
                 end
             end
             t:assert(slots == 16, '16 entrants')
-            t:assert(contains(pairings, 'You') == 1, 'the human appears exactly once')
+            t:assert(contains(pairings, 'You') == 1, 'the player appears exactly once')
         end
     end)
 
-    t('buildBracket puts the human in varying slots', function(t)
+    t('buildBracket puts the player in varying slots', function(t)
         math.randomseed(4)
         local positions = {}
         for _ = 1, 200 do
@@ -59,10 +59,10 @@ T('tournament_bracket', function(t)
         t:assert(n > 1, 'the draw is random, not a fixed slot (saw ' .. n .. ')')
     end)
 
-    t('humanOpponent names whoever the human faces', function(t)
+    t('playerOpponent names whoever the player faces', function(t)
         math.randomseed(5)
         local bracket = buildBracket('You', generateNames(15))
-        local opponent = humanOpponent(bracket)
+        local opponent = playerOpponent(bracket)
         t:assert(opponent ~= nil and opponent ~= 'You', 'found a real opponent')
         for _, pair in ipairs(bracket.rounds[1]) do
             if pair[1] == 'You' then t:assert(pair[2] == opponent, 'matches the pairing') end
@@ -81,25 +81,25 @@ T('tournament_bracket', function(t)
         t:assert(a > 0 and b > 0, 'both sides win sometimes')
     end)
 
-    t('advanceRound carries a winning human forward', function(t)
+    t('advanceRound carries a winning player forward', function(t)
         math.randomseed(7)
         local bracket = buildBracket('You', generateNames(15))
         advanceRound(bracket, true)
         t:assert(bracket.round == 2, 'moved to round 2')
         t:assert(#bracket.rounds[2] == 4, '4 quarterfinals')
-        t:assert(contains(bracket.rounds[2], 'You') == 1, 'the human advanced')
+        t:assert(contains(bracket.rounds[2], 'You') == 1, 'the player advanced')
         t:assert(#bracket.rounds[1] == 8, 'round 1 is kept for drawing')
     end)
 
-    t('advanceRound drops a losing human but keeps the bracket whole', function(t)
+    t('advanceRound drops a losing player but keeps the bracket whole', function(t)
         math.randomseed(8)
         local bracket = buildBracket('You', generateNames(15))
-        local beat = humanOpponent(bracket)
+        local beat = playerOpponent(bracket)
         advanceRound(bracket, false)
-        t:assert(contains(bracket.rounds[2], 'You') == 0, 'the human is out')
+        t:assert(contains(bracket.rounds[2], 'You') == 0, 'the player is out')
         t:assert(contains(bracket.rounds[2], beat) == 1, 'their opponent advanced instead')
         t:assert(#bracket.rounds[2] == 4, 'still 4 quarterfinals')
-        t:assert(humanOpponent(bracket) == nil, 'and there is nobody to face')
+        t:assert(playerOpponent(bracket) == nil, 'and there is nobody to face')
     end)
 
     t('the whole bracket runs 8 -> 4 -> 2 -> 1', function(t)
@@ -109,7 +109,7 @@ T('tournament_bracket', function(t)
             advanceRound(bracket, true)
             t:assert(#bracket.rounds[bracket.round] == expected,
                 'round ' .. bracket.round .. ' has ' .. expected .. ' matches')
-            t:assert(contains(bracket.rounds[bracket.round], 'You') == 1, 'human still in')
+            t:assert(contains(bracket.rounds[bracket.round], 'You') == 1, 'player still in')
         end
         t:assert(bracket.round == 4, 'four rounds to the Final')
     end)
@@ -133,7 +133,7 @@ T('tournament_bracket', function(t)
         end
     end)
 
-    t('matchWinner agrees with the human result either way', function(t)
+    t('matchWinner agrees with the player result either way', function(t)
         math.randomseed(12)
         local won = buildBracket('You', generateNames(15))
         local wonIndex
@@ -141,7 +141,7 @@ T('tournament_bracket', function(t)
             if pair[1] == 'You' or pair[2] == 'You' then wonIndex = m end
         end
         advanceRound(won, true)
-        t:assert(matchWinner(won, 1, wonIndex) == 'You', 'a won match reads as the human')
+        t:assert(matchWinner(won, 1, wonIndex) == 'You', 'a won match reads as the player')
 
         math.randomseed(12)
         local lost = buildBracket('You', generateNames(15))
@@ -154,12 +154,12 @@ T('tournament_bracket', function(t)
         t:assert(matchWinner(lost, 1, lostIndex) == beat, 'a lost match reads as the opponent')
     end)
 
-    t('advanceRound with nil resolves the human-less bracket by coin flip', function(t)
+    t('advanceRound with nil resolves the player-less bracket by coin flip', function(t)
         math.randomseed(10)
         local bracket = buildBracket('You', generateNames(15))
         advanceRound(bracket, false)      -- human eliminated
         advanceRound(bracket, nil)        -- no human result to honour any more
         t:assert(#bracket.rounds[3] == 2, 'semifinals still get paired')
-        t:assert(contains(bracket.rounds[3], 'You') == 0, 'and the human stays out')
+        t:assert(contains(bracket.rounds[3], 'You') == 0, 'and the player stays out')
     end)
 end)

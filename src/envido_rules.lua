@@ -1,8 +1,4 @@
--- Pure envido math (no LÖVE); CantosState only calls these.
-
--- Hand (2-3 Cards) -> envido value 0..33. Two-or-more of a suit: the two
--- highest of that suit summed + 20; otherwise the single highest card value.
--- Best-of-suits also covers a 3-same-suit (flor-shaped) hand automatically.
+-- Two of the same suit: summed + 20
 function envidoValue(hand)
     local best = 0
     local bySuit = {}
@@ -22,23 +18,21 @@ function envidoValue(hand)
     return best
 end
 
--- Ties go to mano -- explicit reglamento rule, not a coin flip.
+-- Ties go to mano
 function envidoWinner(manoValue, pieValue)
     return manoValue >= pieValue and 'mano' or 'pie'
 end
 
--- "No quiero": the last caller wins everything proposed before the rejected
--- call, floored at 1 (a lone unraised first call still pays 1).
+-- "No quiero": the last caller wins everything
 function rejectValue(cumulative, lastCallValue)
     return math.max(cumulative - lastCallValue, 1)
 end
 
--- Falta envido: if both sides are still in malas (leader < 15) the winner goes
--- straight to 30 from their own score; otherwise it's whatever the leader needs.
-function faltaEnvidoValue(humanScore, aiScore, winnerSide)
-    local leader = math.max(humanScore, aiScore)
+-- Falta envido: if both sides are still in malas (leader < 15) the winner goes straight to 30 from their own score, otherwise it's whatever the leader needs to 30
+function faltaEnvidoValue(playerScore, aiScore, winnerSide)
+    local leader = math.max(playerScore, aiScore)
     if leader < 15 then
-        return 30 - (winnerSide == 'human' and humanScore or aiScore)
+        return 30 - (winnerSide == 'player' and playerScore or aiScore)
     end
     return 30 - leader
 end

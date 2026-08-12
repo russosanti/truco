@@ -1,8 +1,4 @@
--- Opponent names (PRD 8 §3). Generic, common Argentine given names and
--- surnames, combined for variety; nothing tied to an identifiable person.
--- Written without accents (Tomas, not Tomás): the name widths the bracket and
--- the dialog boxes are budgeted against are byte counts, and an accented
--- character is two bytes in UTF-8.
+-- Opponent name base and generation
 
 OPPONENT_FIRST_NAMES = {
     'Facundo', 'Lucas', 'Martin', 'Nicolas', 'Santiago', 'Julian', 'Tomas', 'Agustin',
@@ -14,14 +10,12 @@ OPPONENT_SURNAMES = {
     'Sanchez', 'Romero', 'Alvarez', 'Torres', 'Ruiz', 'Flores', 'Acosta', 'Benitez',
 }
 
--- The short label used in-match: names are generated with distinct first names,
--- so this is unambiguous and fits the HUD and the dialog boxes.
+-- First name of the full name
 function firstNameOf(name)
     return name:match('^(%S+)') or name
 end
 
--- One name, avoiding anything already in `exclude` (a list). 256 combinations
--- against at most 15 taken, so the retry practically never runs twice.
+-- Random combination name excluding used ones (exclude list)
 function randomName(exclude)
     local taken = {}
     for _, name in ipairs(exclude or {}) do
@@ -39,10 +33,7 @@ function randomName(exclude)
     error('randomName: could not find an unused name')
 end
 
--- `n` names, all distinct. Drawn by shuffling the first-name pool rather than
--- calling randomName n times: that guarantees distinct FIRST names too (which
--- is what the bracket displays, and 16 of them covers the 15 opponents a
--- tournament needs) with no retry loop.
+-- Generate n distinct names
 function generateNames(n)
     local firsts = {}
     for i, name in ipairs(OPPONENT_FIRST_NAMES) do firsts[i] = name end

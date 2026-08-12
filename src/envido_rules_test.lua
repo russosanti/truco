@@ -50,11 +50,11 @@ T('envido_rules', function(t)
 
     t('faltaEnvidoValue: both branches', function(t)
         -- leader >= 15: the doc's worked example, 20 vs 10 -> 10
-        t:assert(faltaEnvidoValue(20, 10, 'human') == 10, 'leader 20 -> 30-20 = 10')
+        t:assert(faltaEnvidoValue(20, 10, 'player') == 10, 'leader 20 -> 30-20 = 10')
         t:assert(faltaEnvidoValue(20, 10, 'ai') == 10, 'leader-branch ignores winner side')
         -- leader < 15 (malas): winner goes to 30 from its own score
-        t:assert(faltaEnvidoValue(10, 5, 'human') == 20, 'malas, human wins -> 30-10 = 20')
+        t:assert(faltaEnvidoValue(10, 5, 'player') == 20, 'malas, player wins -> 30-10 = 20')
         t:assert(faltaEnvidoValue(10, 5, 'ai') == 25, 'malas, ai wins -> 30-5 = 25')
-        t:assert(faltaEnvidoValue(0, 0, 'human') == 30, 'both at 0 -> 30')
+        t:assert(faltaEnvidoValue(0, 0, 'player') == 30, 'both at 0 -> 30')
     end)
 end)

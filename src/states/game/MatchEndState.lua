@@ -7,8 +7,8 @@ MatchEndState = Class{__includes = BaseState}
 function MatchEndState:init(winner, loop)
     self.winner = winner
     self.matchFormat = loop.matchFormat
-    self.chicosWon = { human = loop.chicosWon.human, ai = loop.chicosWon.ai }
-    self.humanScore = loop.humanScore
+    self.chicosWon = { player = loop.chicosWon.player, ai = loop.chicosWon.ai }
+    self.playerScore = loop.playerScore
     self.aiScore = loop.aiScore
     self.aiName = loop.aiName or 'AI'
     -- whoever launched the match wants the result back (the tournament); with
@@ -20,7 +20,7 @@ function MatchEndState:update(dt)
     if love.keyboard.wasPressed('return') then
         gStateStack:pop()
         if self.onReturn then
-            self.onReturn(self.winner == 'human')
+            self.onReturn(self.winner == 'player')
         else
             gStateStack:push(MenuState())
         end
@@ -28,20 +28,20 @@ function MatchEndState:update(dt)
 end
 
 function MatchEndState:render()
-    love.graphics.clear(24/255, 89/255, 53/255, 1)
+    clearBackground()
     love.graphics.setColor(1, 1, 1, 1)
 
     love.graphics.setFont(gFonts['large'])
-    local title = self.winner == 'human' and 'You win the partida!'
+    local title = self.winner == 'player' and 'You win the partida!'
         or (self.aiName .. ' wins the partida')
     love.graphics.printf(title, 0, VIRTUAL_HEIGHT / 2 - 55, VIRTUAL_WIDTH, 'center')
 
     -- a best-of-3 is told by chicos; a single chico only ever had the one score
     local tally
     if self.matchFormat == 'best_of_3' then
-        tally = 'chicos  ' .. self.chicosWon.human .. ' - ' .. self.chicosWon.ai
+        tally = 'chicos  ' .. self.chicosWon.player .. ' - ' .. self.chicosWon.ai
     else
-        tally = 'final score  ' .. self.humanScore .. ' - ' .. self.aiScore
+        tally = 'final score  ' .. self.playerScore .. ' - ' .. self.aiScore
     end
     love.graphics.setFont(gFonts['medium'])
     love.graphics.printf(tally, 0, VIRTUAL_HEIGHT / 2 - 10, VIRTUAL_WIDTH, 'center')

@@ -23,22 +23,22 @@ T('truco_rules', function(t)
     end)
 
     t('availableTrucoCall: opening is either side while nothing is accepted', function(t)
-        t:assert(availableTrucoCall(0, nil, 'human', nil) == 2, 'human may open Truco')
+        t:assert(availableTrucoCall(0, nil, 'player', nil) == 2, 'player may open Truco')
         t:assert(availableTrucoCall(0, nil, 'ai', nil) == 2, 'ai may open Truco')
     end)
 
     t('availableTrucoCall: only trucoLeader may raise, one step at a time', function(t)
         -- level 2 accepted, ai is leader
         t:assert(availableTrucoCall(2, 'ai', 'ai', nil) == 3, 'leader raises to Retruco')
-        t:assert(availableTrucoCall(2, 'ai', 'human', nil) == nil, 'non-leader may not raise')
+        t:assert(availableTrucoCall(2, 'ai', 'player', nil) == nil, 'non-leader may not raise')
         -- level 3 accepted, human leader
-        t:assert(availableTrucoCall(3, 'human', 'human', nil) == 4, 'leader raises to Vale cuatro')
-        t:assert(availableTrucoCall(3, 'human', 'ai', nil) == nil, 'non-leader may not raise')
+        t:assert(availableTrucoCall(3, 'player', 'player', nil) == 4, 'leader raises to Vale cuatro')
+        t:assert(availableTrucoCall(3, 'player', 'ai', nil) == nil, 'non-leader may not raise')
     end)
 
     t('availableTrucoCall: nothing past Vale cuatro, nothing while pending', function(t)
         t:assert(availableTrucoCall(4, 'ai', 'ai', nil) == nil, 'no raise past Vale cuatro')
-        t:assert(availableTrucoCall(0, nil, 'human', { level = 2 }) == nil, 'no call while one is pending')
+        t:assert(availableTrucoCall(0, nil, 'player', { level = 2 }) == nil, 'no call while one is pending')
         t:assert(availableTrucoCall(2, 'ai', 'ai', { level = 3 }) == nil, 'leader cannot raise mid-pending')
     end)
 end)

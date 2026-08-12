@@ -1,9 +1,43 @@
-# Truco Argentino (starter skeleton)
+# Truco Argentino
 
 A 2-player (vs AI) Truco Argentino card game in Lua/LÖVE, modeled on CS50's
 Games final project brief. Design doc and PRDs are tracked separately;
 this repo starts from a stripped-down copy of the [pokebowl](.) project so
 the reusable scaffolding doesn't have to be rebuilt from scratch.
+
+Full rules: 3 tricks per hand with the Spanish 40-card ranking, envido (real
+and falta), flor (contraflor, al resto), truco (retruco, vale cuatro), going
+to the mazo, chicos to 30 and best-of-3 partidas, plus a 16-player
+single-elimination tournament against named opponents.
+
+## Running it
+
+```
+love .
+```
+
+Requires LÖVE 11.5. From the title screen: **Play Match** (best-of-3),
+**Quick Chico** (a single chico), or **Tournament**. Arrows + Enter, or the
+mouse, work everywhere.
+
+In a hand: hover or arrow onto a card to lift it, Enter or click to play it.
+Calls appear as buttons on the right — playing a card instead is how you
+decline an envido.
+
+## Tests
+
+Unit tests cover the pure rules modules. Use `luajit`, not `lua` — Homebrew's
+Lua is 5.5, which makes `for` control variables `const` and breaks the vendored
+`lib/class.lua`; LÖVE embeds LuaJIT, so it's also the matching runtime.
+
+```
+for f in src/*_test.lua; do luajit lib/knife/test.lua $f; done
+```
+
+## Code layout
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is organised, where
+each rule lives, and which constants to change to tune behaviour.
 
 ## What came from pokebowl, unchanged
 
@@ -45,6 +79,5 @@ the pokebowl project.
 
 ## Status
 
-Boots to a placeholder start state that confirms the card sheet loads
-correctly. See PRD 1 (`prd-01-card-deck-model.md`) for the next piece to
-implement -- the `Card`/`Deck` data model and trick-rank comparator.
+Feature-complete: all nine PRDs implemented (card model, hand loop, envido,
+truco, chico/partida scoring, heuristic AI, menu, tournament bracket, flor).

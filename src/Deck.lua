@@ -2,9 +2,6 @@
     Truco Argentino
 
     -- Deck Class --
-
-    The 40-card Spanish deck: 4 suits x 10 ranks (no 8s or 9s). See PRD 1 §3
-    for the method table.
 ]]
 
 Deck = Class{}
@@ -14,8 +11,7 @@ function Deck:init()
 end
 
 --[[
-    (Re)builds the full 40-card deck, unshuffled, in canonical
-    suit-then-rank order (matches CARD_SUITS x CARD_RANKS from card_defs).
+    (Re)builds the full 40-card deck, unshuffled. The deck is always in the same order, so shuffle() must be called
 ]]
 function Deck:build()
     self.cards = {}
@@ -26,7 +22,7 @@ function Deck:build()
     end
 end
 
--- Fisher-Yates shuffle of self.cards, in place.
+-- Shuffle cards in deck
 function Deck:shuffle()
     local cards = self.cards
     for i = #cards, 2, -1 do
@@ -35,8 +31,7 @@ function Deck:shuffle()
     end
 end
 
--- Removes and returns n cards from the top of the deck. Errors if fewer than
--- n cards remain.
+-- Removes and returns n cards from the top of the deck
 function Deck:deal(n)
     if n > #self.cards then
         error('Deck:deal(' .. n .. ') requested more cards than remain (' .. #self.cards .. ')')
@@ -49,11 +44,12 @@ function Deck:deal(n)
     return dealt
 end
 
+-- Remaining cards in deck
 function Deck:remaining()
     return #self.cards
 end
 
--- Rebuilds the full 40-card deck and shuffles -- call this between hands.
+-- Rebuilds the deck and shuffles
 function Deck:reset()
     self:build()
     self:shuffle()

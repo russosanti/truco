@@ -26,6 +26,17 @@ function AiConfig.bluffDelta()
     return AiConfig.coin() and -1 or 1
 end
 
+function AiConfig.contains(list, value)
+    for _, v in ipairs(list or {}) do
+        if v == value then return true end
+    end
+    return false
+end
+
+function AiConfig.bluffTier(order, tier)
+    return AiConfig.shiftTier(order, tier, AiConfig.bluffDelta())
+end
+
 -- Step `tier` along the ordered list by `delta`, clamped at both ends.
 function AiConfig.shiftTier(order, tier, delta)
     for i, name in ipairs(order) do

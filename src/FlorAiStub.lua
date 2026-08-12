@@ -18,14 +18,7 @@ function FlorAiStub.tier(value, aggression)
 end
 
 local function bluffed(value)
-    return AiConfig.shiftTier(TIERS, FlorAiStub.tier(value), AiConfig.bluffDelta())
-end
-
-local function has(list, callType)
-    for _, c in ipairs(list or {}) do
-        if c == callType then return true end
-    end
-    return false
+    return AiConfig.bluffTier(TIERS, FlorAiStub.tier(value))
 end
 
 -- `raises` is the canto's availableRaises(), so only a legal rung can be named.
@@ -36,8 +29,8 @@ function FlorAiStub.chooseResponse(value, raises, atBase)
     local tier = bluffed(value)
 
     if tier == 'huge' then
-        if has(raises, 'resto') then return 'resto' end
-        if has(raises, 'contraflor') then return 'contraflor' end
+        if AiConfig.contains(raises, 'resto') then return 'resto' end
+        if AiConfig.contains(raises, 'contraflor') then return 'contraflor' end
         return 'quiero'
     end
     if atBase or tier == 'solid' then return 'quiero' end

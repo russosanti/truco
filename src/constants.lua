@@ -2,9 +2,6 @@
     Truco Argentino
 
     -- constants --
-
-    Carried over from the pokebowl base (Poke50 / CS50 2D Pokemon distro).
-    TILE_SIZE was dropped -- there's no tilemap in a card game.
 ]]
 
 VIRTUAL_WIDTH = 384
