@@ -27,6 +27,7 @@ local function respawn(p)
 end
 
 function MenuState:init()
+    Audio.music('menu')
     -- one particle per unique card
     self.cards = {}
     for _, card in ipairs(Deck().cards) do

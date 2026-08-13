@@ -9,6 +9,7 @@ Timer = require 'lib.knife.timer'
 
 require 'src.constants'
 require 'src.utils.sides'
+require 'src.utils.audio'
 require 'src.utils.Util'
 require 'src.StateMachine'
 
@@ -70,6 +71,4 @@ gFonts = {
     ['large'] = love.graphics.newFont('fonts/font.ttf', 32)
 }
 
-gSounds = {
-    -- no audio assets yet
-}
+Audio.load()
