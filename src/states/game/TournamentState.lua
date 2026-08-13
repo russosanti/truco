@@ -12,6 +12,7 @@ local NAME_W = 56          -- name budget
 local TEXT_MID = 4         -- half the 8px line height for centring the connector lines
 
 function TournamentState:init()
+    Audio.music('menu')
     self.bracket = buildBracket(PLAYER, generateNames(15))
     self.phase = 'bracket'
     self.mouseWasDown = love.mouse.isDown(1)

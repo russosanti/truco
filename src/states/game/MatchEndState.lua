@@ -3,6 +3,7 @@
 MatchEndState = Class{__includes = BaseState}
 
 function MatchEndState:init(winner, loop)
+    Audio.music('menu')
     self.winner = winner
     self.matchFormat = loop.matchFormat
     self.chicosWon = { player = loop.chicosWon.player, ai = loop.chicosWon.ai }

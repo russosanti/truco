@@ -3,6 +3,7 @@ HandLoopState = Class{__includes = BaseState}
 
 -- opts = { matchFormat, aiName, onMatchEnd }
 function HandLoopState:init(opts)
+    Audio.music('match')
     opts = opts or {}
     self.playerScore = 0
     self.aiScore = 0

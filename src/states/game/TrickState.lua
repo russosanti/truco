@@ -20,6 +20,8 @@ local CALL_LABEL = {
 }
 local ENVIDO_OPENS = { 'envido', 'real', 'falta' }
 local REJECT_LABEL = { envido = 'No quiero', flor = 'Me achico' }
+local TRUCO_VOICE = { [2] = 'truco', [3] = 'retruco', [4] = 'vale4' }
+local REJECT_VOICE = { envido = 'noquiero', flor = 'meachico' }
 
 -- Simple helper functions
 local function handYFor(side) return side == 'ai' and AI_HAND_Y or PLAYER_HAND_Y end
@@ -102,6 +104,7 @@ function TrickState:enter()
         end
         local side = declarers[i]
         self.dialogs = { self:makeDialog(side, 'Flor') }
+        Audio.say(side, { 'flor' })
         Timer.after(1.5, function()
             self.dialogs = {}
             announce(i + 1)
@@ -126,6 +129,7 @@ end
 
 -- Remove `card` from `hand` and tween it to the table
 function TrickState:playCard(side, card, hand)
+    Audio.sfx('card', 0.08)
     -- capture the slot start position before the card leaves the hand
     local index
     for i, c in ipairs(hand) do
@@ -339,6 +343,7 @@ function TrickState:applyCallButton(act)
         local callType = act:match('call:(%a+)')
         if self.canto then
             self.canto:raise(callType)  -- player response raises
+            Audio.say('player', { callType })
             self.aiThinking = false
         else
             self:openCanto('player', callType)
@@ -351,36 +356,41 @@ function TrickState:callTruco(side)
     if not lvl then return end
     self.trucoPending = { level = lvl, caller = side }
     self.aiThinking = false
+    Audio.say(side, { TRUCO_VOICE[lvl] })
     if side == 'ai' then self:showAiMessage(TRUCO_NAME[lvl]) end
 end
 
 -- Accept only sets the stake, no points awarded yet
-function TrickState:resolveTrucoAccept()
+function TrickState:resolveTrucoAccept(quietly)
     local p = self.trucoPending
     self.trucoLevel = p.level
     self.trucoLeader = otherSide(p.caller)  -- the accepter may raise next
     self.trucoPending = nil
     self.aiThinking = false
+    if not quietly then Audio.say(self.trucoLeader, { 'quiero' }) end
 end
 
 -- Accept and rise truco to the next level
 function TrickState:resolveTrucoRaise(side)
     local lvl = trucoRaiseCall(self.trucoPending)
     if not lvl then return end
-    self:resolveTrucoAccept()
+    self:resolveTrucoAccept(true)
     self.trucoLeader = side
     self.trucoPending = { level = lvl, caller = side }
+    Audio.say(side, { 'quiero', TRUCO_VOICE[lvl] })
 end
 
 -- Reject truco call and end the trick
 function TrickState:resolveTrucoReject()
     local p = self.trucoPending
     self.trucoPending = nil
+    Audio.say(otherSide(p.caller), { 'noquiero' })
     self.loop:changePhase('score', { winner = p.caller, points = trucoRejectValue(p.level) })
 end
 
 -- Fold during play. Me voy al mazo
 function TrickState:resolveFold(side)
+    Audio.say(side, { 'mazo' })
     self.loop:changePhase('score', { winner = otherSide(side), points = trucoFoldValue(self.trucoLevel) })
 end
 
@@ -443,6 +453,7 @@ function TrickState:openCanto(opener, callType, family)
     self.canto = Canto(family == 'flor' and FLOR_CANTO or ENVIDO_CANTO, opener, callType)
     self.aiThinking = false
     -- the flor declaration was already announced by enter()
+    if callType ~= 'flor' then Audio.say(opener, { callType }) end
     if opener == 'ai' and callType ~= 'flor' then self:showAiMessage(CALL_LABEL[callType]) end
 end
 
@@ -468,6 +479,7 @@ function TrickState:aiRespondCanto()
             self:finishCanto()
         else
             self.canto:raise(resp)
+            Audio.say('ai', { resp })
             self:showAiMessage(CALL_LABEL[resp])
         end
     end)
@@ -530,7 +542,9 @@ function TrickState:finishCanto()
     self.aiThinking = false
 
     local function pay() self:awardCanto(outcome, family) end
-    local function reveal(manoPrefix) self:revealShowdown(family, manoPrefix, pay) end
+    local function reveal(manoPrefix, manoQuiero)
+        self:revealShowdown(family, manoPrefix, pay, manoQuiero)
+    end
 
     if outcome.kind == 'accept' then
         if answerer == 'ai' and self.mano == 'ai' then
@@ -538,28 +552,38 @@ function TrickState:finishCanto()
             reveal('Quiero')
         elseif answerer == 'ai' then
             -- AI is pie: quiero and its number comes with its response below
+            Audio.say('ai', { 'quiero' })
             self:showAiMessage('Quiero', function() reveal() end)
         else
-            reveal()  -- player said quiero
+            reveal(nil, answerer == self.mano)  -- player said quiero
         end
     elseif answerer == 'ai' then
+        Audio.say('ai', { REJECT_VOICE[family] })
         self:showAiMessage(REJECT_LABEL[family], pay)
     else
+        Audio.say('player', { REJECT_VOICE[family] })
         pay()
     end
 end
 
 -- Showdown scores, or son buenas if the pie won
-function TrickState:revealShowdown(family, manoPrefix, onDone)
+function TrickState:revealShowdown(family, manoPrefix, onDone, manoQuiero)
     local pie = otherSide(self.mano)
     local manoVal, pieVal = self:cantoValues(family)
     local manoText = manoPrefix and (manoPrefix .. ', ' .. manoVal) or tostring(manoVal)
 
     self.dialogs = { self:makeDialog(self.mano, manoText) }
+    if manoPrefix or manoQuiero then
+        Audio.say(self.mano, { 'quiero', Audio.number(manoVal) })
+    else
+        Audio.say(self.mano, { Audio.number(manoVal) })
+    end
     Timer.after(2, function()
         -- conceding says nothing about your own number
         local pieText = pieVal > manoVal and (pieVal .. ' son mejores') or 'son buenas'
         table.insert(self.dialogs, self:makeDialog(pie, pieText))
+        Audio.say(pie, pieVal > manoVal
+            and { Audio.number(pieVal), 'sonmejores' } or { 'sonbuenas' })
         Timer.after(2, function()
             self.dialogs = {}
             onDone()
