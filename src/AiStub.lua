@@ -1,8 +1,4 @@
--- Trick-play decisions (PRD 6 §4). Lower trickTier is stronger (see
--- Card.compareTrick). Deterministic on purpose -- §4 defines no bluffing, and a
--- randomized card play reads as a blunder rather than as deception.
---
--- ctx = { against = card on the table or nil, myWins, theirWins, tricksPlayed }
+-- Trick-play decisions
 
 AiStub = {}
 
@@ -30,9 +26,7 @@ local function matching(hand, test)
     return out
 end
 
--- Cover as cheaply as possible; failing that tie, which is never worse than
--- losing -- and per isHandDecided a parda while already up a trick takes the
--- hand outright. Otherwise throw away the weakest card.
+-- Try to win as cheaply as possible if not throw weakest card
 local function respondTo(hand, against)
     local beats = matching(hand, function(c) return c.trickTier < against.trickTier end)
     if #beats > 0 then return weakest(beats) end
@@ -43,9 +37,7 @@ local function respondTo(hand, against)
     return weakest(hand)
 end
 
--- Lead big once the hand can be settled this trick -- either side holding a
--- trick win, or a parda already played (isHandDecided settles a parda plus any
--- single win). Before that lead small and keep the bravas for the decider.
+-- Lead big once the hand can be settled this trick or parda
 local function lead(hand, ctx)
     local pardas = (ctx.tricksPlayed or 0) - (ctx.myWins or 0) - (ctx.theirWins or 0)
     local decisive = (ctx.myWins or 0) > 0 or (ctx.theirWins or 0) > 0 or pardas >= 1

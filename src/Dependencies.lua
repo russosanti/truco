@@ -22,6 +22,7 @@ require 'src.states.game.MenuState'
 require 'src.states.game.TournamentState'
 
 require 'src.gui.Panel'  -- used by TrickState for the "AI: <call>" message box
+require 'src.gui.Textbox'
 
 require 'src.card_defs'
 require 'src.Card'

@@ -47,8 +47,18 @@ each rule lives, and which constants to change to tune behaviour.
 - `src/StateMachine.lua`, `src/states/BaseState.lua`, `src/states/StateStack.lua` -- the state management pattern
 - `src/states/game/FadeInState.lua` / `FadeOutState.lua` -- generic color-fade transitions, no game-specific content
 - `src/Util.lua` -- `GenerateQuads` (sprite sheet slicing) and `print_r`
-- `src/gui/*` -- generic Menu/Panel/ProgressBar/Selection/Textbox widgets (not wired up yet; kept in case they're useful for call prompts like envido/truco later)
+- `src/gui/Panel.lua` -- generic bordered panel, used as the backing for the in-hand message boxes
+- `src/gui/Menu.lua`, `src/gui/Selection.lua` -- generic widgets, still unused
 - `main.lua` / `src/Dependencies.lua` / `src/constants.lua` -- same shape (LÖVE lifecycle, central require + global asset tables), content trimmed to match this project
+
+## What started as pokebowl code and was rewritten
+
+- `src/gui/Textbox.lua` -- began as the pokebowl paginated dialogue box. The
+  pagination, its `update`/`next`/`isClosed` input handling and the upstream
+  header are gone; what remains is this project's message box (auto-sized to its
+  text, screen-centred, dismissed by the caller's timer rather than a keypress).
+  Only the `Panel` composition and the `getWrap` width clamp survive from
+  upstream. Treat it as project code.
 
 ## What was dropped
 

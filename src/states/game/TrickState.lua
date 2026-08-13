@@ -67,15 +67,12 @@ end
 
 -- Dialog message box
 function TrickState:makeDialog(side, text)
-    local font = gFonts['small']
-    local w = font:getWidth(text) + 24
-    local h = font:getHeight() + 16
-    return { text = text, panel = Panel((VIRTUAL_WIDTH - w) / 2, SIDE_MSG_Y[side], w, h) }
+    return Textbox(self:speaker(side) .. text, SIDE_MSG_Y[side])
 end
 
 -- Message for AI moves. `afterFn` runs after the message clears
 function TrickState:showAiMessage(label, afterFn)
-    self.dialogs = { self:makeDialog('ai', self:speaker('ai') .. label) }
+    self.dialogs = { self:makeDialog('ai', label) }
     Timer.after(1.5, function()
         self.dialogs = {}
         if afterFn then afterFn() end
@@ -104,7 +101,7 @@ function TrickState:enter()
             return
         end
         local side = declarers[i]
-        self.dialogs = { self:makeDialog(side, self:speaker(side) .. 'Flor') }
+        self.dialogs = { self:makeDialog(side, 'Flor') }
         Timer.after(1.5, function()
             self.dialogs = {}
             announce(i + 1)
@@ -558,11 +555,11 @@ function TrickState:revealShowdown(family, manoPrefix, onDone)
     local manoVal, pieVal = self:cantoValues(family)
     local manoText = manoPrefix and (manoPrefix .. ', ' .. manoVal) or tostring(manoVal)
 
-    self.dialogs = { self:makeDialog(self.mano, self:speaker(self.mano) .. manoText) }
+    self.dialogs = { self:makeDialog(self.mano, manoText) }
     Timer.after(2, function()
         -- conceding says nothing about your own number
         local pieText = pieVal > manoVal and (pieVal .. ' son mejores') or 'son buenas'
-        table.insert(self.dialogs, self:makeDialog(pie, self:speaker(pie) .. pieText))
+        table.insert(self.dialogs, self:makeDialog(pie, pieText))
         Timer.after(2, function()
             self.dialogs = {}
             onDone()
@@ -645,11 +642,8 @@ function TrickState:render()
 
     if #self.dialogs > 0 then
         -- message boxes
-        love.graphics.setFont(gFonts['small'])
         for _, d in ipairs(self.dialogs) do
-            d.panel:render()
-            love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.printf(d.text, d.panel.x, d.panel.y + 8, d.panel.width, 'center')
+            d:render()
         end
     else
         for _, b in ipairs(self:callButtons()) do

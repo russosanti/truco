@@ -3,12 +3,7 @@
 
     -- Card Class --
 
-    A plain immutable value object, built once from a suit and a rank and
-    read from everywhere else. Mirrors the "class wraps static data"
-    convention from pokebowl's Pokemon.lua, backed by the lookup tables in
-    src/card_defs.lua.
-
-    See PRD 1 §3 for the field table.
+    Represent a single card
 ]]
 
 Card = Class{}
@@ -27,11 +22,7 @@ function Card:init(suit, rank)
 end
 
 --[[
-    Module-level comparator (not an instance method) so it stays trivially
-    testable in isolation, per PRD 1 §4. Lower trickTier wins a trick.
-
     Returns -1 if cardA beats cardB, 1 if cardB beats cardA, 0 for a parda
-    (tied tier, regardless of suit).
 ]]
 function Card.compareTrick(cardA, cardB)
     if cardA.trickTier < cardB.trickTier then

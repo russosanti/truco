@@ -1,6 +1,4 @@
--- End of the partida. Takes HandLoopState's place on the stack, so it reads the
--- final tally off the loop once at construction rather than holding onto it.
--- Enter loops back to the menu.
+-- End of the match. Takes HandLoopState's place on the stack
 
 MatchEndState = Class{__includes = BaseState}
 
@@ -11,8 +9,7 @@ function MatchEndState:init(winner, loop)
     self.playerScore = loop.playerScore
     self.aiScore = loop.aiScore
     self.aiName = loop.aiName or 'AI'
-    -- whoever launched the match wants the result back (the tournament); with
-    -- nobody waiting, a standalone match just returns to the menu
+    -- whoever launched the match wants the result back
     self.onReturn = loop.onMatchEnd
 end
 
@@ -38,7 +35,7 @@ function MatchEndState:render()
         or (self.aiName .. ' wins the partida')
     love.graphics.printf(title, 0, VIRTUAL_HEIGHT / 2 - 55, VIRTUAL_WIDTH, 'center')
 
-    -- a best-of-3 is told by chicos; a single chico only ever had the one score
+    -- a best-of-3 is told by chicos. A single chico only has one score
     local tally
     if self.matchFormat == 'best_of_3' then
         tally = 'chicos  ' .. self.chicosWon.player .. ' - ' .. self.chicosWon.ai

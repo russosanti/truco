@@ -1,90 +1,30 @@
---[[
-    CS50 2D
-    Truco Argentino
-
-    Author: Colton Ogden
-    cogden@cs50.harvard.edu
-]]
+-- Textbox Class modified from CS50
 
 Textbox = Class{}
 
-function Textbox:init(x, y, width, height, text, font)
-    self.panel = Panel(x, y, width, height)
-    self.x = x
-    self.y = y
-    self.width = width
-    self.height = height
+local PAD_X, PAD_Y = 24, 16
 
-    self.text = text
+function Textbox:init(text, y, font)
     self.font = font or gFonts['small']
-    
-    self.padding = 8 -- global padding for all edges
-    self.lineHeight = self.font:getHeight()
-    self.linePadding = 2 -- extra vertical space between lines
-    
-    -- total lines that can fit in the textbox
-    self.maxLines = math.floor((self.height - 2 * self.padding) / (self.lineHeight + self.linePadding))
-    
-    -- break the text into chunks that fit within the textbox width
-    _, self.textChunks = self.font:getWrap(self.text, self.width - 2 * self.padding)
+    self.text = text
+    self.y = y
 
-    self.chunkCounter = 1
-    self.endOfText = false
-    self.closed = false
-
-    self:next()
-end
-
---[[
-    Goes to the next page of text if there is any, otherwise toggles the textbox.
-]]
-function Textbox:nextChunks()
-    local chunks = {}
-    local startIdx = self.chunkCounter
-    local endIdx = math.min(self.chunkCounter + self.maxLines - 1, #self.textChunks)
-
-    for i = startIdx, endIdx do
-        table.insert(chunks, self.textChunks[i])
+    local maxWidth = VIRTUAL_WIDTH - 8
+    local lines = { text }
+    self.width = self.font:getWidth(text) + PAD_X
+    if self.width > maxWidth then
+        self.width = maxWidth
+        _, lines = self.font:getWrap(text, self.width - PAD_X)
     end
 
-    if endIdx == #self.textChunks then
-        self.endOfText = true
-    else
-        self.chunkCounter = endIdx + 1
-    end
-
-    return chunks
-end
-
-function Textbox:next()
-    if self.endOfText then
-        self.displayingChunks = {}
-        self.panel:toggle()
-        self.closed = true
-    else
-        self.displayingChunks = self:nextChunks()
-    end
-end
-
-function Textbox:update(dt)
-    if love.keyboard.wasPressed('space') or love.keyboard.wasPressed('enter') or love.keyboard.wasPressed('return') then
-        self:next()
-    end
-end
-
-function Textbox:isClosed()
-    return self.closed
+    self.height = #lines * self.font:getHeight() + PAD_Y
+    self.x = (VIRTUAL_WIDTH - self.width) / 2
+    self.panel = Panel(self.x, self.y, self.width, self.height)
 end
 
 function Textbox:render()
     self.panel:render()
-    
     love.graphics.setFont(self.font)
-    for i = 1, #self.displayingChunks do
-        love.graphics.print(
-            self.displayingChunks[i],
-            self.x + self.padding,
-            self.y + self.padding + (i - 1) * (self.lineHeight + self.linePadding)
-        )
-    end
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.printf(self.text, self.x, self.y + PAD_Y / 2, self.width, 'center')
 end

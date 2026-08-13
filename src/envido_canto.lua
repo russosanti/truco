@@ -1,6 +1,4 @@
--- Envido's binding to the generic Canto engine: the call ladder + turning a
--- resolved outcome into (side, points) via the pure envido_rules functions.
-
+-- Pure envido scoring and logic, without any game state or UI
 ENVIDO_CANTO = {
     value = { envido = 2, real = 3 },        -- falta is a ceiling, excluded here
     isCeiling = function(callType) return callType == 'falta' end,

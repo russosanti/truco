@@ -1,15 +1,9 @@
--- Shared AI tuning (PRD 6 §3). One knob pair for all three decision files;
--- PRD 7 edits these values (or overrides them) per tournament round.
---
--- aggression (0-1) shifts every threshold: higher calls, raises and accepts on
--- weaker hands. bluffRate is the chance a decision slides one tier either way,
--- so the AI isn't perfectly readable. Both work through shiftTier below -- the
--- envido tiers and the truco positions are the same kind of ordered ladder.
+-- Shared basic AI tuning
 
 AiConfig = {
     aggression = 0.5,
     bluffRate = 0.10,
-    random = math.random,  -- injectable seam: tests stub it to kill the coin flips
+    random = math.random,  -- injectable sead
 }
 
 function AiConfig.chance(p)
@@ -20,7 +14,7 @@ function AiConfig.coin()
     return AiConfig.random() < 0.5
 end
 
--- 0 normally; +1 or -1 with probability bluffRate.
+-- probability of bluffing
 function AiConfig.bluffDelta()
     if not AiConfig.chance(AiConfig.bluffRate) then return 0 end
     return AiConfig.coin() and -1 or 1
@@ -37,7 +31,7 @@ function AiConfig.bluffTier(order, tier)
     return AiConfig.shiftTier(order, tier, AiConfig.bluffDelta())
 end
 
--- Step `tier` along the ordered list by `delta`, clamped at both ends.
+-- Used for scaling or calling either envido or truco
 function AiConfig.shiftTier(order, tier, delta)
     for i, name in ipairs(order) do
         if name == tier then

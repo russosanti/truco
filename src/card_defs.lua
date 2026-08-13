@@ -6,7 +6,7 @@
     Global lookup tables for the card model
 ]]
 
--- Iteration order for building a deck (§3).
+-- Iteration order for building a deck
 CARD_SUITS = { 'bastos', 'copas', 'espadas', 'oros' }
 CARD_RANKS = { 1, 2, 3, 4, 5, 6, 7, 10, 11, 12 }
 
