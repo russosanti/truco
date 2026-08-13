@@ -8,8 +8,8 @@ push = require 'lib.push'
 Timer = require 'lib.knife.timer'
 
 require 'src.constants'
-require 'src.sides'
-require 'src.Util'
+require 'src.utils.sides'
+require 'src.utils.Util'
 require 'src.StateMachine'
 
 require 'src.states.BaseState'
@@ -17,7 +17,7 @@ require 'src.states.StateStack'
 
 require 'src.states.game.FadeInState'
 require 'src.states.game.FadeOutState'
-require 'src.transition'
+require 'src.utils.transition'
 require 'src.states.game.MenuState'
 require 'src.states.game.TournamentState'
 
@@ -25,28 +25,28 @@ require 'src.gui.Panel'  -- used by TrickState for the "AI: <call>" message box
 require 'src.gui.Textbox'
 
 require 'src.card_defs'
-require 'src.Card'
-require 'src.Deck'
+require 'src.objects.Card'
+require 'src.objects.Deck'
 
-require 'src.trick_rules'
-require 'src.ai_config'
-require 'src.AiStub'
-require 'src.table_render'
+require 'src.rules.trick_rules'
+require 'src.ai.ai_config'
+require 'src.ai.AiStub'
+require 'src.utils.table_render'
 
-require 'src.envido_rules'
-require 'src.canto'
-require 'src.envido_canto'
-require 'src.EnvidoAiStub'
+require 'src.rules.envido_rules'
+require 'src.objects.canto'
+require 'src.rules.envido_canto'
+require 'src.ai.EnvidoAiStub'
 
-require 'src.flor_rules'
-require 'src.flor_canto'
-require 'src.FlorAiStub'
+require 'src.rules.flor_rules'
+require 'src.rules.flor_canto'
+require 'src.ai.FlorAiStub'
 
-require 'src.opponent_names'  --named opponents
-require 'src.tournament_bracket'
-require 'src.truco_rules'
-require 'src.TrucoAiStub'
-require 'src.match_rules'
+require 'src.utils.opponent_names'  --named opponents
+require 'src.utils.tournament_bracket'
+require 'src.rules.truco_rules'
+require 'src.ai.TrucoAiStub'
+require 'src.rules.match_rules'
 
 require 'src.states.game.HandLoopState'
 require 'src.states.game.DealState'

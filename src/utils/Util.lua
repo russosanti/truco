@@ -1,13 +1,9 @@
 --[[
     CS50 2D
-    Super Mario Bros. Remake
-
-    -- StartState Class --
+    Super Mario Bros
 
     Author: Colton Ogden
     cogden@cs50.harvard.edu
-
-    Helper functions for writing Match-3.
 ]]
 
 --[[

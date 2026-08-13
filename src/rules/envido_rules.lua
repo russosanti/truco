@@ -1,4 +1,4 @@
--- Two of the same suit: summed + 20
+-- Envido: Value of two of the same suit + 20
 function envidoValue(hand)
     local best = 0
     local bySuit = {}

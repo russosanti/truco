@@ -2,7 +2,7 @@
 ENVIDO_CANTO = {
     value = { envido = 2, real = 3 },        -- falta is a ceiling, excluded here
     isCeiling = function(callType) return callType == 'falta' end,
-    -- envido stacks at most twice; a real leaves only falta; falta ends it
+    -- envido calls stacks at most twice (envido, envido) then you should call real or falta
     nextCalls = function(calls)
         if calls[#calls] == 'falta' then return {} end
         local envidoCount, realCalled = 0, false
@@ -16,9 +16,7 @@ ENVIDO_CANTO = {
     end,
 }
 
--- Resolve a Canto outcome to the side that scores and how much. Envido values
--- are passed in (snapshotted at hand start, since a card may already be on the
--- table by the time the pie calls envido).
+-- Resolve a Canto outcome and how much. Envido values are passes in as calculated at the start (a card may be already played)
 function envidoAward(outcome, mano, manoValue, pieValue, playerScore, aiScore)
     local other = otherSide(mano)
 
@@ -29,7 +27,7 @@ function envidoAward(outcome, mano, manoValue, pieValue, playerScore, aiScore)
         return outcome.caller, points
     end
 
-    -- accept: compare envido values (ties to mano)
+    -- accept: compare envido values. On tie mano wins
     local winnerSide = envidoWinner(manoValue, pieValue) == 'mano' and mano or other
     local points = outcome.ceiling
         and faltaEnvidoValue(playerScore, aiScore, winnerSide)
