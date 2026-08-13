@@ -24,29 +24,14 @@ In a hand: hover or arrow onto a card to lift it, Enter or click to play it.
 Calls appear as buttons on the right — playing a card instead is how you
 decline an envido.
 
-## Tests
-
-Unit tests cover the pure rules modules. Use `luajit`, not `lua` — Homebrew's
-Lua is 5.5, which makes `for` control variables `const` and breaks the vendored
-`lib/class.lua`; LÖVE embeds LuaJIT, so it's also the matching runtime.
-
-```
-for f in src/*_test.lua; do luajit lib/knife/test.lua $f; done
-```
-
-## Code layout
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is organised, where
-each rule lives, and which constants to change to tune behaviour.
-
 ## What came from pokebowl, unchanged
 
 - `lib/class.lua` -- the `Class{}` constructor pattern used throughout
-- `lib/knife/*` -- utility library, including `test.lua`, the unit-test runner PRD 1 uses
+- `lib/knife/*` -- utility library; `timer.lua` (tweens and delays) and `event.lua` are the ones wired up
 - `lib/push.lua` -- resolution-independent rendering
 - `src/StateMachine.lua`, `src/states/BaseState.lua`, `src/states/StateStack.lua` -- the state management pattern
 - `src/states/game/FadeInState.lua` / `FadeOutState.lua` -- generic color-fade transitions, no game-specific content
-- `src/Util.lua` -- `GenerateQuads` (sprite sheet slicing) and `print_r`
+- `src/utils/Util.lua` -- `GenerateQuads` (sprite sheet slicing) and `print_r`
 - `src/gui/Panel.lua` -- generic bordered panel, used as the backing for the in-hand message boxes
 - `src/gui/Menu.lua`, `src/gui/Selection.lua` -- generic widgets, still unused
 - `main.lua` / `src/Dependencies.lua` / `src/constants.lua` -- same shape (LÖVE lifecycle, central require + global asset tables), content trimmed to match this project
