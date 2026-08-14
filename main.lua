@@ -1,11 +1,7 @@
 --[[
     Truco Argentino
 
-    Starter skeleton, carried over from the pokebowl project (itself built on
-    the CS50 2D Pokemon distro by Colton Ogden). The reusable pieces --
-    Class{}, the StateStack, push.lua resolution scaling, Timer -- are kept
-    as-is; everything RPG-specific was stripped. See README.md for what
-    came from where.
+    Carried over from the pokebowl project (itself built on the CS50 2D Pokemon distro by Colton Ogden)
 
     Card art: Spanish playing card artwork by Basquetteur (Wikimedia Commons),
     CC BY-SA 3.0 -- see graphics/ and the project README for full attribution.
